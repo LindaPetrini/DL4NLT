@@ -39,12 +39,12 @@ class ASAP_Data(Dataset):
         
         #select on rows that are in desired dataset and essay set
         data = data.loc[data["essay_set"].isin(essay_set) & data["essay_id"].isin(ids_used)]
-        data['y'] = data[['rater1_domain1', 'rater2_domain1']].sum(axis=1)
+        data['y'] = data[['rater1_domain1', 'rater2_domain1']].mean(axis=1)
         
         #if 3rd rater - replace y rating with his instead 
         non_empty_rater3 = list(data.loc[pd.notnull(data['rater3_domain1'])].index.values.tolist())
         for r in non_empty_rater3:
-            data.at[r, 'y'] = data.at[r, 'rater3_domain1']
+            data.at[r, 'y'] = data.at[r, 'rater3_domain1'] / 2.0
         
         #add preprocessing here to store numbers vectors instead of essays 
         self.data = data[['essay','y']]
