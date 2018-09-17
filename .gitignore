@@ -1,5 +1,4 @@
-dataset
-/data
+dl4nlt/data/*
 .DS_Store
 .ipynb_checkpoints/
 Untitled.ipynb
