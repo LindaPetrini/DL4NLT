@@ -51,13 +51,14 @@ class ASAP_Data(Dataset):
             data.at[r, 'y'] = data.at[r, 'rater3_domain1'] / 2.0
         
         # add preprocessing here to store numbers vectors instead of essays
-        self.data = data[['essay', 'y']]
+        self.data = data[['essay', 'y']].reset_index(drop=True)
+        
         self.dict = Dictionary()
         pre = Preprocessing()
         
         print("\nStarted preprocessing...")
         t_preproc = time.time()
-        for i, row in data.iterrows():
+        for i, row in self.data.iterrows():
             x = self.data.at[i, "essay"]
             preprocessed_essay = pre.preprocess_essay(x)
             for w in preprocessed_essay:
@@ -77,8 +78,10 @@ class ASAP_Data(Dataset):
         return len(self.data)
 
 
-# example
-set1 = ASAP_Data([1], folder_dataset=DATA_FOLDER)
-x, y = set1[0]
-print(x)
-print(y)
+if __name__ == '__main__':
+    
+    # example
+    set1 = ASAP_Data([1], folder_dataset=DATA_FOLDER)
+    x, y = set1[0]
+    print(x)
+    print(y)
