@@ -10,15 +10,17 @@ from torch.utils.data.dataset import Dataset
 from .preprocessing import Preprocessing, Dictionary
 import time
 
+from dl4nlt import ROOT
+
 # extract the data.zip before running
-DATA_FOLDER = "dl4nlt/data/"
+DATA_FOLDER = os.path.join(ROOT, "data/")
 
 
 class ASAP_Data(Dataset):
-    def __init__(self, folder_dataset, essay_set, train=True, valid=False, test=False):
+    def __init__(self, essay_set, folder_dataset=DATA_FOLDER, train=True, valid=False, test=False):
         """
-        folder_dataset: folder name where dataset is stored
         essay_set: set of ints, that could be from 1-8 indicating the essay set to be selected
+        folder_dataset: folder name where dataset is stored
         train: bool to take training set ids
         valid: bool to take validation set ids
         test: bool to take test set ids
@@ -76,7 +78,7 @@ class ASAP_Data(Dataset):
 
 
 # example
-set1 = ASAP_Data(DATA_FOLDER, [1])
+set1 = ASAP_Data([1], folder_dataset=DATA_FOLDER)
 x, y = set1[0]
 print(x)
 print(y)
