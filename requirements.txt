@@ -1,0 +1,16 @@
+################################## PIP ##################################
+
+# source activate <environment_name>
+# pip install --file requirements-pip.txt
+
+# pyspellchecker
+symspellpy
+
+
+################################## CONDA ##################################
+
+# source activate <environment_name>
+# conda install --file requirements-conda.txt
+
+# nltk
+pandas
