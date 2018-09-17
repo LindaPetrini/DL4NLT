@@ -1,10 +1,13 @@
 
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from dl4nlt.dataloader import ASAP_Data
-
 import argparse
+import os.path
 
-OUTPUT_FILE = "model_doc2vec"
+from dl4nlt import ROOT
+
+
+OUTPUT_FILE = os.path.join(ROOT, "models/w2v_baseline/model_doc2vec")
 EPOCHS = 20
 SIZE = 200
 ALPHA = 0.025
@@ -12,8 +15,18 @@ WINDOW = 3
 WORKERS = 4
 
 
-def main(essay_set, epochs=EPOCHS, size=SIZE, alpha=ALPHA, window=WINDOW, outfile=OUTPUT_FILE, workers=WORKERS):
-
+def train_doc2vec(essay_set=list(range(8)), epochs=EPOCHS, size=SIZE, alpha=ALPHA, window=WINDOW, outfile=None, workers=WORKERS):
+    """
+    :param essay_set: list of ids of the essays sub-categories to use
+    :param epochs: number of epochs to train the Doc2Vec model
+    :param size: size of the embeddings for Doc2Vec
+    :param alpha: learning rate for Doc2Vec
+    :param window: size of window for Doc2Vec
+    :param outfile: output file where to store the model (default None = model is just returned but not saved)
+    :param workers: number of parallel processes to run
+    :return: the trained model
+    """
+    
     set = ASAP_Data(essay_set)
     
     documents = [TaggedDocument(set[i][0], [i]) for i in range(len(set))]
@@ -33,7 +46,10 @@ def main(essay_set, epochs=EPOCHS, size=SIZE, alpha=ALPHA, window=WINDOW, outfil
         # fix the learning rate, no decay
         model.min_alpha = model.alpha
     
-    model.save(outfile)
+    if outfile is not None:
+        model.save(outfile)
+    
+    return model
 
 
 if __name__ == '__main__':
@@ -55,10 +71,10 @@ if __name__ == '__main__':
                         help='File where to store the model')
     FLAGS, unparsed = parser.parse_known_args()
     
-    main(essay_set=[int(x) for x in FLAGS.essays.split(',')],
-         epochs=FLAGS.epochs,
-         size=FLAGS.size,
-         alpha=FLAGS.alpha,
-         window=FLAGS.window,
-         workers=FLAGS.workers,
-         outfile=FLAGS.output)
+    train_doc2vec(essay_set=[int(x) for x in FLAGS.essays.split(',')],
+                  epochs=FLAGS.epochs,
+                  size=FLAGS.size,
+                  alpha=FLAGS.alpha,
+                  window=FLAGS.window,
+                  workers=FLAGS.workers,
+                  outfile=FLAGS.output)
