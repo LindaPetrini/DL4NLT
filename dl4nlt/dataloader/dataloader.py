@@ -38,6 +38,7 @@ class ASAP_Data(Dataset):
             datasets_to_include.append("valid")
         if test:
             datasets_to_include.append("test")
+            
         ids_used = split_ids.loc[split_ids['Set'].isin(datasets_to_include)]
         ids_used = list(np.array(ids_used[["ID"]].values.tolist()).flatten())
         

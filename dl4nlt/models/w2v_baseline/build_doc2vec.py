@@ -15,7 +15,7 @@ WINDOW = 3
 WORKERS = 4
 
 
-def train_doc2vec(essay_set=list(range(8)), epochs=EPOCHS, size=SIZE, alpha=ALPHA, window=WINDOW, outfile=None, workers=WORKERS):
+def train_doc2vec(essay_set=list(range(1, 9)), epochs=EPOCHS, size=SIZE, alpha=ALPHA, window=WINDOW, outfile=None, workers=WORKERS):
     """
     :param essay_set: list of ids of the essays sub-categories to use
     :param epochs: number of epochs to train the Doc2Vec model
@@ -27,7 +27,7 @@ def train_doc2vec(essay_set=list(range(8)), epochs=EPOCHS, size=SIZE, alpha=ALPH
     :return: the trained model
     """
     
-    set = ASAP_Data(essay_set)
+    set = ASAP_Data(essay_set, train=True, valid=False, test=False)
     
     documents = [TaggedDocument(set[i][0], [i]) for i in range(len(set))]
     
@@ -55,8 +55,8 @@ def train_doc2vec(essay_set=list(range(8)), epochs=EPOCHS, size=SIZE, alpha=ALPH
 if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--essays', type=str, default=','.join([str(i) for i in range(8)]),
-                        help='Comma separated list of essays groups ids (values in [0-7])')
+    parser.add_argument('--essays', type=str, default=','.join([str(i) for i in range(1, 9)]),
+                        help='Comma separated list of essays groups ids (values in [1-8])')
     parser.add_argument('--epochs', type=int, default=EPOCHS,
                         help='Number of epochs for training')
     parser.add_argument('--size', type=int, default=SIZE,
