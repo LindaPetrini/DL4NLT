@@ -15,6 +15,23 @@ from dl4nlt import ROOT
 # extract the data.zip before running
 DATA_FOLDER = os.path.join(ROOT, "data/")
 
+norm_essay_set = {
+    1: {'max': 6, 'min': 1},
+    2: {'max': 6, 'min': 1},
+    3: {'max': 3, 'min': 0},
+    4: {'max': 3, 'min': 0},
+    5: {'max': 4, 'min': 0},
+    6: {'max': 4, 'min': 0},
+    7: {'max': 12, 'min': 0},
+    8: {'max': 30, 'min': 5}
+}
+
+def normalize_row(r):
+    return (r['y'] - norm_essay_set[r['essay_set']]['min']
+            ) / (norm_essay_set[r['essay_set']]['max'] - norm_essay_set[r['essay_set']]['min'])
+
+def denormalize(essay_set, y):
+    return (y + norm_essay_set[essay_set]['min']) * (norm_essay_set[essay_set]['max'] - norm_essay_set[essay_set]['min'])
 
 class ASAP_Data(Dataset):
     def __init__(self, essay_set, folder_dataset=DATA_FOLDER, train=True, valid=False, test=False):
@@ -27,7 +44,7 @@ class ASAP_Data(Dataset):
         """
         # Open and load tsv file including the whole training data
         data = pd.read_csv(os.path.join(folder_dataset,"data.tsv"), delimiter="\t", encoding="ISO-8859-1")
-        print(list(data.columns.values))  # file header
+          # file header
         
         # Open the kaggle ids to select the specific dataset: train/valid/test
         split_ids = pd.read_csv(folder_dataset + "kaggle_ids.csv", delimiter=",", encoding="utf-8")
@@ -45,14 +62,20 @@ class ASAP_Data(Dataset):
         # select on rows that are in desired dataset and essay set
         data = data.loc[data["essay_set"].isin(essay_set) & data["essay_id"].isin(ids_used)]
         data['y'] = data[['rater1_domain1', 'rater2_domain1']].mean(axis=1)
-        
+
         # if 3rd rater - replace y rating with his instead
         non_empty_rater3 = list(data.loc[pd.notnull(data['rater3_domain1'])].index.values.tolist())
         for r in non_empty_rater3:
             data.at[r, 'y'] = data.at[r, 'rater3_domain1'] / 2.0
-        
+
+        print("Number of essays in data: ", len(data['y']))
+
+        #normalize
+        print("Normalizing Y axis")
+        data['y'] = data.apply(normalize_row, axis=1)
+
         # add preprocessing here to store numbers vectors instead of essays
-        self.data = data[['essay', 'y']].reset_index(drop=True)
+        self.data = data[['essay', 'y', 'essay_set']].reset_index(drop=True)
         
         self.dict = Dictionary()
         pre = Preprocessing()
@@ -80,7 +103,6 @@ class ASAP_Data(Dataset):
 
 
 if __name__ == '__main__':
-    
     # example
     set1 = ASAP_Data([1], folder_dataset=DATA_FOLDER)
     x, y = set1[0]
