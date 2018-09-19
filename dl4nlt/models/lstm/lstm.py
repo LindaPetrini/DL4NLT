@@ -62,7 +62,7 @@ class CustomLSTM(nn.Module):
             return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(),
                     weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_())
         else:
-            return weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_()
+            return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(), )
     
     def init_emb_from_file(self, path):
         emb_mat = np.genfromtxt(path)

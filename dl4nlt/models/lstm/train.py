@@ -18,6 +18,8 @@ from dl4nlt.models.lstm import CustomLSTM
 
 VALIDATION_BATCHSIZE = 1000
 
+DROPOUT = 0.2
+RNN_TYPE = 'LSTM'
 BATCHSIZE = 200
 EPOCHS = 20
 LR = 2e-3
@@ -26,11 +28,11 @@ LR = 2e-3
 def collate(batch):
     batch = sorted(batch, key=lambda b: -1 * len(b.tokenized))
     
-    X = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(b.tokenized).reshape(-1, 1) for b in batch])
+    X = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(b.tokenized).reshape(-1) for b in batch])
     
-    s = torch.LongTensor([b.essay_set for b in batch]).reshape(1, -1, 1)
+    s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
     
-    y = torch.tensor([b.y for b in batch]).reshape(1, -1, 1)
+    y = torch.tensor([b.y for b in batch]).reshape(-1)
     
     return X, s, y
         
@@ -76,13 +78,14 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
             t = t.to(device)
         
             hiddens = model.init_hidden(x.shape[1])
-        
             model.zero_grad()
         
-            y = model(x, *hiddens)[0]
+            y = model(x, hiddens)[0]
         
             l = loss(y, t)
-        
+
+            print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
+            
             l.backward()
             optimizer.step()
         
@@ -103,7 +106,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         
             hiddens = model.init_hidden(x.shape[1])
         
-            y = model(x, *hiddens)[0]
+            y = model(x, hiddens)[0]
         
             l = loss(y, t).item()
         
@@ -142,13 +145,13 @@ if __name__ == '__main__':
                         help='Size of the embeddings')
     parser.add_argument('--n_hidden_units', type=int,
                         help='Number of units per hidden layer')
-    parser.add_argument('--n_hidden_layers', type=int,
+    parser.add_argument('--n_hidden_layers', type=int, default=1,
                         help='Number of hidden layers')
-    parser.add_argument('--dropout', type=float,
+    parser.add_argument('--dropout', type=float, default=DROPOUT,
                         help='Dropout probability')
-    parser.add_argument('--rnn_type', type=str,
+    parser.add_argument('--rnn_type', type=str, default=RNN_TYPE,
                         help='Type of RNN model to use')
-    parser.add_argument('--embeddings_path', type=str,
+    parser.add_argument('--embeddings_path', type=str, default=None,
                         help='Path to the file containing the pre-trained embeddings')
     
     FLAGS = parser.parse_args()
