@@ -6,8 +6,9 @@ from collections import defaultdict
 
 class Preprocessing(object):
     
-    def __init__(self):
+    def __init__(self, global_misspelled_token):
         
+        self.global_misspelled_token = global_misspelled_token
         self.max_dist = 2
         self.max_len = 0
         self.allowed_symbols = ".,:;?!()'"
@@ -31,7 +32,7 @@ class Preprocessing(object):
     def correct_word(self, word):
         
         if word[0] == '@'or word in self.allowed_symbols:
-            return word
+            return [word]
 
         suggestion_list = self.sym_spell.lookup(word, Verbosity.TOP, 2)
 
@@ -39,11 +40,14 @@ class Preprocessing(object):
             suggestion = suggestion_list[0].term
             distance = suggestion_list[0].distance
             if distance == 0:
-                return word
+                return [word]
             else:
-                return "_" + suggestion
+                if self.global_misspelled_token:
+                    return ["@correction_token", suggestion]
+                else:
+                    return ["_" + suggestion]
         else:
-            return "@misspelled"
+            return ["@misspelled"]
         
     
     # Remove symbols, extra spaces and apply word correction
@@ -66,7 +70,7 @@ class Preprocessing(object):
         preprocessed = []
         for w in essay:
             w = self.correct_word(w)
-            preprocessed.append(w)
+            preprocessed += [w]
         
         self.max_len = max(self.max_len, len(preprocessed))
         return preprocessed
@@ -76,8 +80,10 @@ class Dictionary(object):
     def __init__(self):
         self.word2idx = {}
         self.idx2word = []
-        self.add_word('@padding')
-        self.add_word('@unknown')
+        self.add_word('@padding')  # Zero padding at the end of essays
+        self.add_word('@unknown')  # Word is too unfrequent or did not appear in the trainset, and set as unknown
+        self.add_word('@misspelled')  # The word is misspelled, with an editing distance > 2 to any known word
+        self.add_word('@correction_token')  # The next word was corrected
         self.word2idx = defaultdict(lambda: self.word2idx['@unknown'], self.word2idx)
 
     def add_word(self, word):
