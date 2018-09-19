@@ -1,17 +1,8 @@
-# from spellchecker import SpellChecker
-# from nltk.metrics import edit_distance
 from symspellpy.symspellpy import SymSpell, Verbosity
 
 import os
-import time
 import re
-
-
-# NLTK corpus
-# import nltk
-# nltk.download('words')
-# from nltk.corpus import words
-# print(word in words.words())
+from collections import defaultdict
 
 class Preprocessing(object):
     
@@ -25,8 +16,6 @@ class Preprocessing(object):
                             'whitespaces': re.compile(' +'),
                             }
 
-        # self.spell = SpellChecker()
-        
         # Params: initial_capacity, max_edit_distance_dictionary, prefix_length
         self.sym_spell = SymSpell(83000, self.max_dist, 7)
         dictionary_path = os.path.join(os.path.dirname(__file__),
@@ -37,13 +26,9 @@ class Preprocessing(object):
             raise FileNotFoundError
         
         return
-    
-    
+
     # Correct wrong words
     def correct_word(self, word):
-
-        # if word[0] == '@' or not len(self.spell.unknown([word])):
-        # suggestion = self.spell.correction(word)
         
         if word[0] == '@'or word in self.allowed_symbols:
             return word
@@ -58,7 +43,7 @@ class Preprocessing(object):
             else:
                 return "_" + suggestion
         else:
-            return "@UNKNOWN"
+            return "@misspelled"
         
     
     # Remove symbols, extra spaces and apply word correction
@@ -81,7 +66,6 @@ class Preprocessing(object):
         preprocessed = []
         for w in essay:
             w = self.correct_word(w)
-            # print(w)
             preprocessed.append(w)
         
         self.max_len = max(self.max_len, len(preprocessed))
@@ -93,6 +77,8 @@ class Dictionary(object):
         self.word2idx = {}
         self.idx2word = []
         self.add_word('@padding')
+        self.add_word('@unknown')
+        self.word2idx = defaultdict(lambda: self.word2idx['@unknown'], self.word2idx)
 
     def add_word(self, word):
         if word not in self.word2idx:
@@ -102,31 +88,3 @@ class Dictionary(object):
 
     def __len__(self):
         return len(self.idx2word)
-    
-
-
-# spell = Preprocessing()
-# # essay = " ".join(
-# #     ['something', 'is', 'hapenning', 'here', 'happened', 'google', 'google', 'california', 'helfalsosfe', 'Carl', 'CAR',
-# #      'Lead'])
-# time_a = time.time()
-# essay = spell.correct_word("memebers")
-# print(time.time() - time_a)
-# # print(essay)
-
-
-# Params: initial_capacity, max_edit_distance_dictionary, prefix_length
-# sym_spell = SymSpell(83000, 2, 7)
-# dictionary_path = os.path.join(os.path.dirname(__file__),
-#                                "frequency_dictionary_en_82_765.txt")
-# # Params: column of the term and of the term frequency in the dictionary text file
-# if not sym_spell.load_dictionary(dictionary_path, 0, 1):
-#     print("Dictionary file not found")
-#     raise FileNotFoundError
-#
-# time_a = time.time()
-# suggestion = sym_spell.lookup("hebyllo", Verbosity.TOP, 2)
-# print(suggestion[0].term)
-# print(suggestion[0].distance)
-#
-# print(time.time() - time_a)
