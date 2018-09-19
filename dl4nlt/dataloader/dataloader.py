@@ -27,14 +27,15 @@ norm_essay_set = {
 }
 
 def normalize_row(r):
-    return (r['y'] - norm_essay_set[r['essay_set']]['min']
+    return (r['y_original'] - norm_essay_set[r['essay_set']]['min']
             ) / (norm_essay_set[r['essay_set']]['max'] - norm_essay_set[r['essay_set']]['min'])
 
 def denormalize(essay_set, y):
     return (y + norm_essay_set[essay_set]['min']) * (norm_essay_set[essay_set]['max'] - norm_essay_set[essay_set]['min'])
 
+
 class ASAP_Data(Dataset):
-    def __init__(self, essay_set, folder_dataset=DATA_FOLDER, train=True, valid=False, test=False):
+    def __init__(self, essay_set, folder_dataset=DATA_FOLDER, train=True, valid=False, test=False, dictionary=None):
         """
         essay_set: set of ints, that could be from 1-8 indicating the essay set to be selected
         folder_dataset: folder name where dataset is stored
@@ -44,10 +45,11 @@ class ASAP_Data(Dataset):
         """
         # Open and load tsv file including the whole training data
         data = pd.read_csv(os.path.join(folder_dataset,"data.tsv"), delimiter="\t", encoding="ISO-8859-1")
-          # file header
+        # file header
         
         # Open the kaggle ids to select the specific dataset: train/valid/test
         split_ids = pd.read_csv(folder_dataset + "kaggle_ids.csv", delimiter=",", encoding="utf-8")
+
         datasets_to_include = []
         if train:
             datasets_to_include.append("train")
@@ -61,45 +63,56 @@ class ASAP_Data(Dataset):
         
         # select on rows that are in desired dataset and essay set
         data = data.loc[data["essay_set"].isin(essay_set) & data["essay_id"].isin(ids_used)]
-        data['y'] = data[['rater1_domain1', 'rater2_domain1']].mean(axis=1)
+        data['y_original'] = data[['rater1_domain1', 'rater2_domain1']].mean(axis=1)
 
         # if 3rd rater - replace y rating with his instead
         non_empty_rater3 = list(data.loc[pd.notnull(data['rater3_domain1'])].index.values.tolist())
         for r in non_empty_rater3:
-            data.at[r, 'y'] = data.at[r, 'rater3_domain1'] / 2.0
+            data.at[r, 'y_original'] = data.at[r, 'rater3_domain1'] / 2.0
 
-        print("Number of essays in data: ", len(data['y']))
+        print("Number of essays in data: ", len(data['y_original']))
 
         #normalize
         print("Normalizing Y axis")
         data['y'] = data.apply(normalize_row, axis=1)
 
         # add preprocessing here to store numbers vectors instead of essays
-        self.data = data[['essay', 'y', 'essay_set']].reset_index(drop=True)
-        
-        self.dict = Dictionary()
-        pre = Preprocessing()
-        
-        print("\nStarted preprocessing...")
-        t_preproc = time.time()
-        for i, row in self.data.iterrows():
-            x = self.data.at[i, "essay"]
-            preprocessed_essay = pre.preprocess_essay(x)
-            for w in preprocessed_essay:
-                self.dict.add_word(w)
-            self.data.at[i, "essay"] = preprocessed_essay
-        self.longest_essay = pre.max_len
-        print("Preprocessing completed! Took {:.2f} s\n".format(time.time()-t_preproc))
+        self.data = data[['essay', 'y', 'essay_set', 'y_original']].reset_index(drop=True)
+
+        self.dict = dictionary
+        self.preprocess_essays()
+
+        self.data.loc[:, 'tokenized'] = self.data.essay.apply(lambda e: [self.dict.word2idx[w] for w in e])
     
     # Override to give PyTorch access to any item on the dataset
     def __getitem__(self, index):
-        x = self.data.at[index, "essay"]
-        y = self.data.at[index, "y"]
-        return x, y
-    
+        return self.data.iloc[index]
+
     # Override to give PyTorch size of dataset
     def __len__(self):
         return len(self.data)
+
+    def preprocess_essays(self):
+        build_dict = False
+        if self.dict is None:
+            self.dict = Dictionary()
+            build_dict = True
+            print("Building Dictionary for Set of Essays of length: ", len(self.data))
+
+        pre = Preprocessing()
+
+        print("\nStarted preprocessing...")
+        t_preproc = time.time()
+        for i, row in self.data.iterrows():
+            essay = self.data.at[i, "essay"]
+            preprocessed_essay = pre.preprocess_essay(essay)
+            if build_dict:
+                for w in preprocessed_essay:
+                    self.dict.add_word(w)
+            self.data.at[i, "essay"] = preprocessed_essay
+
+        print("Preprocessing completed! Took {:.2f} s\n".format(time.time() - t_preproc))
+        self.longest_essay = pre.max_len
 
 
 if __name__ == '__main__':
