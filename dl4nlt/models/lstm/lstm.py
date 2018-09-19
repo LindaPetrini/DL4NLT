@@ -4,7 +4,7 @@ from torch.nn import init
 import numpy as np
 
 class CustomLSTM(nn.Module):
-    def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers, n_output=1, dropout=0.2, rnn_type='LSTM', from_file=False):
+    def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers=1, n_output=1, dropout=0.2, rnn_type='LSTM', from_file=None):
         super(CustomLSTM, self).__init__()
         
         torch.manual_seed(42)
@@ -27,6 +27,9 @@ class CustomLSTM(nn.Module):
         self.decoder = nn.Linear(n_hidden_units, self.linear_size)
         self.decoder2 = nn.Linear(self.linear_size, n_output)
         self.softmax = nn.Softmax()
+        
+        if from_file is not None:
+            self.init_emb_from_file(from_file)
     
         # self.init_weights()
     
@@ -56,3 +59,10 @@ class CustomLSTM(nn.Module):
     def init_emb_from_file(self, path):
         emb_mat = np.genfromtxt(path)
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+        
+        
+rnn = CustomLSTM(5, 10, 20, 1)
+input = torch.randint(0, 5, (4, 2))
+h0 = torch.randn(2, 3, 20)
+c0 = torch.randn(2, 3, 20)
+output, (hn, cn) = rnn(input, (h0, c0))
