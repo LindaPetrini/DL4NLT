@@ -29,8 +29,9 @@ class CustomLSTM(nn.Module):
             raise ValueError("An invalid option for `--model` was supplied, options are ['LSTM', 'GRU', 'BLSTM']")
         
         self.decoder = nn.Linear(n_hidden_units, self.linear_size)
+        self.relu = nn.ReLU()
         self.decoder2 = nn.Linear(self.linear_size, n_output)
-        self.softmax = nn.Sigmoid()
+        self.sigmoid = nn.Sigmoid()
         
         if embeddings_path is not None:
             self.init_emb_from_file(embeddings_path)
@@ -49,9 +50,9 @@ class CustomLSTM(nn.Module):
         output = self.drop(output[-1, :, :])  # Take last prediction from the sequence
         
         output = self.decoder(output.view(-1, self.n_hidden_units))
-        output = self.decoder2(output)
+        output = self.decoder2(self.relu(output))
         
-        # output = self.softmax(output)
+        # output = self.sigmoid(output)
         result = output.view(-1)
         return result, hidden
     

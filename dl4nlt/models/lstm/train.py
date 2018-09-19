@@ -24,7 +24,7 @@ DROPOUT = 0.5
 RNN_TYPE = 'LSTM'
 BATCHSIZE = 200
 EPOCHS = 20
-LR = 1e-3
+LR = 4e-3
 
 
 def collate(batch):
@@ -67,36 +67,33 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     print('\n###############################################')
     print('Starting epoch 0 (Random Guessing)')
 
-    for e in range(epochs):
+    model.eval()
+
+    valid_loss = 0
+    for i_batch, batch in enumerate(validation):
+        x, s, t = batch
     
+        x = x.to(device)
+        t = t.to(device)
+    
+        hiddens = model.init_hidden(x.shape[1])
+    
+        y = model(x, hiddens)[0]
+    
+        l = torch.sqrt(loss(y, t)).item()
+    
+        valid_loss += l * x.shape[1]
+
+    valid_loss /= len(validation)
+    print('| Validation loss: {} |'.format(valid_loss))
+
+    valid_losses.append(valid_loss)
+    
+
+    for e in range(epochs):
+
         train_loss = 0
         valid_loss = 0
-
-        model.eval()
-
-        for i_batch, batch in enumerate(validation):
-            x, s, t = batch
-    
-            x = x.to(device)
-            t = t.to(device)
-    
-            hiddens = model.init_hidden(x.shape[1])
-    
-            y = model(x, hiddens)[0]
-    
-            l = torch.sqrt(loss(y, t)).item()
-    
-            valid_loss += l * x.shape[1]
-
-        valid_loss /= len(validation)
-        print('| Validation loss: {} |'.format(valid_loss))
-
-        if not len(valid_losses) == 0 and valid_loss < min(valid_losses):
-            with open(outfile, 'wb') as of:
-                pickle.dump(model, of)
-            print('|\tModel Saved!')
-
-        valid_losses.append(valid_loss)
         
 
         print('###############################################')
@@ -128,8 +125,32 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         train_losses.append(train_loss)
     
         print('| Training loss: {} |'.format(train_loss))
+
+        model.eval()
+
+        for i_batch, batch in enumerate(validation):
+            x, s, t = batch
     
-        
+            x = x.to(device)
+            t = t.to(device)
+    
+            hiddens = model.init_hidden(x.shape[1])
+    
+            y = model(x, hiddens)[0]
+    
+            l = torch.sqrt(loss(y, t)).item()
+    
+            valid_loss += l * x.shape[1]
+
+        valid_loss /= len(validation)
+        print('| Validation loss: {} |'.format(valid_loss))
+
+        if not len(valid_losses) == 0 and valid_loss < min(valid_losses):
+            with open(outfile, 'wb') as of:
+                pickle.dump(model, of)
+            print('|\tModel Saved!')
+
+        valid_losses.append(valid_loss)
     
         # print('Finished epoch {}'.format(e))
         # print('###############################################')
