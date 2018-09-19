@@ -51,7 +51,7 @@ class CustomLSTM(nn.Module):
         output = self.decoder(output.view(-1, self.n_hidden_units))
         output = self.decoder2(output)
         
-        output = self.softmax(output)
+        # output = self.softmax(output)
         result = output.view(-1)
         return result, hidden
     
