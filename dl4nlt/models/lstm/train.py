@@ -9,20 +9,22 @@ from torch.utils.data import DataLoader
 from torch.nn import MSELoss
 
 from torch.optim import Adam
+from torch.optim import SGD
 
 from dl4nlt import ROOT
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
+DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
 from dl4nlt.dataloader import load_dataset
 from dl4nlt.models.lstm import CustomLSTM
 
 VALIDATION_BATCHSIZE = 1000
 
-DROPOUT = 0.2
+DROPOUT = 0.5
 RNN_TYPE = 'LSTM'
 BATCHSIZE = 200
 EPOCHS = 20
-LR = 2e-3
+LR = 1e-3
 
 
 def collate(batch):
@@ -55,21 +57,52 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
                             collate_fn=collate)
 
     loss = MSELoss()
-    optimizer = Adam(model.parameters(), lr)
-
+    # optimizer = Adam(model.parameters(), lr)
+    optimizer = SGD(model.parameters(), lr)
     model.to(device)
 
     train_losses = []
     valid_losses = []
 
+    print('\n###############################################')
+    print('Starting epoch 0 (Random Guessing)')
+
     for e in range(epochs):
-        print('###############################################')
-        print('Starting epoch {}'.format(e))
-    
-        model.train()
     
         train_loss = 0
         valid_loss = 0
+
+        model.eval()
+
+        for i_batch, batch in enumerate(validation):
+            x, s, t = batch
+    
+            x = x.to(device)
+            t = t.to(device)
+    
+            hiddens = model.init_hidden(x.shape[1])
+    
+            y = model(x, hiddens)[0]
+    
+            l = torch.sqrt(loss(y, t)).item()
+    
+            valid_loss += l * x.shape[1]
+
+        valid_loss /= len(validation)
+        print('| Validation loss: {} |'.format(valid_loss))
+
+        if not len(valid_losses) == 0 and valid_loss < min(valid_losses):
+            with open(outfile, 'wb') as of:
+                pickle.dump(model, of)
+            print('|\tModel Saved!')
+
+        valid_losses.append(valid_loss)
+        
+
+        print('###############################################')
+        print('Starting epoch {}'.format(e + 1))
+        
+        model.train()
     
         for i_batch, batch in enumerate(training):
             x, s, t = batch
@@ -82,9 +115,9 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         
             y = model(x, hiddens)[0]
         
-            l = loss(y, t)
+            l = torch.sqrt(loss(y, t))
 
-            print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
+            # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
             
             l.backward()
             optimizer.step()
@@ -94,46 +127,22 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         train_loss /= len(training)
         train_losses.append(train_loss)
     
-        print('training loss: {}'.format(train_loss))
+        print('| Training loss: {} |'.format(train_loss))
     
-        model.eval()
+        
     
-        for i_batch, batch in enumerate(validation):
-            x, s, t = batch
-        
-            x = x.to(device)
-            t = t.to(device)
-        
-            hiddens = model.init_hidden(x.shape[1])
-        
-            y = model(x, hiddens)[0]
-        
-            l = loss(y, t).item()
-        
-            valid_loss += l * x.shape[1]
-    
-        valid_loss /= len(validation)
-        print('validation loss: {}'.format(valid_loss))
-        
-        if valid_loss < max(valid_losses) or len(valid_losses) == 0:
-            with open(outfile, 'wb') as of:
-                pickle.dump(model, of)
-            print('\tModel Saved')
-        
-        valid_losses.append(valid_loss)
-    
-        print('Finished epoch {}'.format(e))
-        print('###############################################')
-        print('\n')
+        # print('Finished epoch {}'.format(e))
+        # print('###############################################')
+        # print('\n')
 
 
 if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str,
+    parser.add_argument('--name', type=str, default='exp.model',
                         help='Name of the experiment (used for output file name)')
-    parser.add_argument('--dataset', type=str,
-                        help='Path tot he folder containg the dataset')
+    parser.add_argument('--dataset', type=str, default=DATASET_DIR,
+                        help='Path to the folder containg the dataset')
     parser.add_argument('--epochs', type=int, default=EPOCHS,
                         help='Number of epochs for training')
     parser.add_argument('--lr', type=float, default=LR,
@@ -141,9 +150,9 @@ if __name__ == '__main__':
     parser.add_argument('--batchsize', type=int, default=BATCHSIZE,
                         help='The batch-size for the training')
     
-    parser.add_argument('--emb_size', type=int,
+    parser.add_argument('--emb_size', type=int, default=200,
                         help='Size of the embeddings')
-    parser.add_argument('--n_hidden_units', type=int,
+    parser.add_argument('--n_hidden_units', type=int, default=100,
                         help='Number of units per hidden layer')
     parser.add_argument('--n_hidden_layers', type=int, default=1,
                         help='Number of hidden layers')

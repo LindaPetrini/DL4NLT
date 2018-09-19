@@ -5,7 +5,7 @@ import numpy as np
 
 
 class CustomLSTM(nn.Module):
-    def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers=1, n_output=1, dropout=0.2, rnn_type='LSTM',
+    def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM',
                  embeddings_path=None):
         super(CustomLSTM, self).__init__()
         
