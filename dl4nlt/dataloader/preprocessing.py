@@ -2,7 +2,7 @@ from symspellpy.symspellpy import SymSpell, Verbosity
 
 import os
 import re
-from collections import defaultdict
+
 
 class Preprocessing(object):
     
@@ -70,9 +70,10 @@ class Preprocessing(object):
         preprocessed = []
         for w in essay:
             w = self.correct_word(w)
-            preprocessed += [w]
+            preprocessed += w
         
         self.max_len = max(self.max_len, len(preprocessed))
+
         return preprocessed
 
 
@@ -84,7 +85,7 @@ class Dictionary(object):
         self.add_word('@unknown')  # Word is too unfrequent or did not appear in the trainset, and set as unknown
         self.add_word('@misspelled')  # The word is misspelled, with an editing distance > 2 to any known word
         self.add_word('@correction_token')  # The next word was corrected
-        self.word2idx = defaultdict(lambda: self.word2idx['@unknown'], self.word2idx)
+
 
     def add_word(self, word):
         if word not in self.word2idx:
@@ -94,3 +95,4 @@ class Dictionary(object):
 
     def __len__(self):
         return len(self.idx2word)
+

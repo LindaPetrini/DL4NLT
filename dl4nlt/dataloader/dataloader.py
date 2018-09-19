@@ -35,7 +35,8 @@ def denormalize(essay_set, y):
 
 
 class ASAP_Data(Dataset):
-    def __init__(self, essay_set, folder_dataset=DATA_FOLDER, train=True, valid=False, test=False, dictionary=None):
+    def __init__(self, essay_set, folder_dataset=DATA_FOLDER,
+                 train=True, valid=False, test=False, dictionary=None, global_misspelled_token=False):
         """
         essay_set: set of ints, that could be from 1-8 indicating the essay set to be selected
         folder_dataset: folder name where dataset is stored
@@ -80,9 +81,9 @@ class ASAP_Data(Dataset):
         self.data = data[['essay', 'y', 'essay_set', 'y_original']].reset_index(drop=True)
 
         self.dict = dictionary
-        self.preprocess_essays()
+        self.preprocess_essays(global_misspelled_token)
 
-        self.data.loc[:, 'tokenized'] = self.data.essay.apply(lambda e: [self.dict.word2idx[w] for w in e])
+        self.data.loc[:, 'tokenized'] = self.data.essay.apply(lambda e: [self.dict.word2idx.get(w, 1) for w in e])
     
     # Override to give PyTorch access to any item on the dataset
     def __getitem__(self, index):
@@ -92,14 +93,14 @@ class ASAP_Data(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def preprocess_essays(self):
+    def preprocess_essays(self, global_misspelled_token):
         build_dict = False
         if self.dict is None:
             self.dict = Dictionary()
             build_dict = True
             print("Building Dictionary for Set of Essays of length: ", len(self.data))
 
-        pre = Preprocessing()
+        pre = Preprocessing(global_misspelled_token)
 
         print("\nStarted preprocessing...")
         t_preproc = time.time()
