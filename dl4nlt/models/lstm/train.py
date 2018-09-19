@@ -17,6 +17,8 @@ from dl4nlt import ROOT
 
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
 
+from dl4nlt.dataloader import load_dataset
+
 BATCHSIZE = 200
 EPOCHS = 20
 LR = 2e-3
@@ -36,7 +38,9 @@ def collate(batch):
 
 def train(model, dataset, epochs, lr, batchsize):
     
-    dataloader = DataLoader(dataset, batch_size=batchsize, shuffle=True, collate_fn=collate)
+    train, valid, test = dataset
+    
+    dataloader = DataLoader(train, batch_size=batchsize, shuffle=True, collate_fn=collate)
     
     for e in range(epochs):
         print('###############################################')
@@ -53,13 +57,15 @@ def train(model, dataset, epochs, lr, batchsize):
     
 def main(name, dataset, epochs, lr, batchsize, **kwargs):
     
+    train, valid, test = load_dataset(dataset)
+    
     vocab_len = None
     
     model = CustomLSTM(vocab_len=vocab_len, **kwargs)
     
     dataset = None
     
-    train(model, dataset, epochs, lr, batchsize)
+    train(model, (train, valid, test), epochs, lr, batchsize)
     
     outfile = os.path.join(OUTPUT_DIR, name)
     
