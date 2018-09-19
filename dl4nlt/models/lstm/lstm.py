@@ -6,7 +6,7 @@ import numpy as np
 
 class CustomLSTM(nn.Module):
     def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers=1, n_output=1, dropout=0.2, rnn_type='LSTM',
-                 from_file=None):
+                 embeddings_path=None):
         super(CustomLSTM, self).__init__()
         
         torch.manual_seed(42)
@@ -32,8 +32,8 @@ class CustomLSTM(nn.Module):
         self.decoder2 = nn.Linear(self.linear_size, n_output)
         self.softmax = nn.Sigmoid()
         
-        if from_file is not None:
-            self.init_emb_from_file(from_file)
+        if embeddings_path is not None:
+            self.init_emb_from_file(embeddings_path)
         
         # self.init_weights()
     
