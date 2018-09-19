@@ -3,6 +3,8 @@ from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from dl4nlt.dataloader import ASAP_Data
 import argparse
 import os.path
+import numpy as np
+import random
 
 from dl4nlt import ROOT
 
@@ -12,8 +14,10 @@ EPOCHS = 20
 SIZE = 200
 ALPHA = 0.025
 WINDOW = 3
-WORKERS = 4
+WORKERS = 1
 
+np.random.seed(42)
+random.seed(42)
 
 def train_doc2vec(essay_set=list(range(1, 9)), epochs=EPOCHS, size=SIZE, alpha=ALPHA, window=WINDOW, outfile=None, workers=WORKERS):
     """
@@ -32,7 +36,7 @@ def train_doc2vec(essay_set=list(range(1, 9)), epochs=EPOCHS, size=SIZE, alpha=A
     documents = [TaggedDocument(set[i][0], [i]) for i in range(len(set))]
     
     # dm = 1 for 'Distributed Memory' (PV-DM); dm=0 uses 'Distributed Bag-of-Words' which does not preserve words order
-    model = Doc2Vec(vector_size=size, dm=1, alpha=alpha, window=window, min_count=1, workers=workers)
+    model = Doc2Vec(vector_size=size, dm=1, alpha=alpha, window=window, min_count=1, workers=workers, seed=42)
 
     model.build_vocab(documents)
 

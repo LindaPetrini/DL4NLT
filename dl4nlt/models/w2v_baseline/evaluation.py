@@ -6,11 +6,16 @@ import pickle
 import os.path
 from dl4nlt import ROOT
 from dl4nlt.dataloader import ASAP_Data
+from scipy.stats import spearmanr
+from sklearn.metrics import cohen_kappa_score
 import numpy as np
+import random
 
 doc2vec_model_path = os.path.join(ROOT, "models/w2v_baseline/model_doc2vec")
 svr_model_path = os.path.join(ROOT, "models/w2v_baseline/model_svr")
 
+np.random.seed(42)
+random.seed(42)
 
 model = Doc2Vec.load(doc2vec_model_path)
 
@@ -31,6 +36,12 @@ rmse_train = np.sqrt(np.mean((trainset.data['y'] - train_pred.reshape(-1)) ** 2)
 
 print('RMSE on trainingset: ', rmse_train)
 
+# c_kappa_train = cohen_kappa_score(trainset.data['y'], train_pred.round().astype(int).reshape(-1))
+# print('Kappa on trainingset: ', c_kappa_train)
+
+spearman_train = spearmanr(trainset.data['y'], train_pred)
+print('Spearman r on test set: ', spearman_train)
+
 testset = ASAP_Data(list(range(1, 9)), train=False, test=True)
 test_pred = []
 for i in range(len(testset)):
@@ -41,3 +52,9 @@ test_pred = np.array(test_pred)
 rmse_test = np.sqrt(np.mean((testset.data['y'] - test_pred.reshape(-1)) ** 2))
 
 print('RMSE on testset:', rmse_test)
+
+# c_kappa_test = cohen_kappa_score(testset.data['y'], test_pred.round().astype(int).reshape(-1))
+# print('Kappa on test set: ', c_kappa_test)
+
+spearman_test = spearmanr(testset.data['y'], test_pred)
+print('Spearman r on test set: ', spearman_test)
