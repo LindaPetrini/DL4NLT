@@ -1,7 +1,7 @@
 # Predicting Essay Scores in the Kaggle ASAP Dataset using Deep Learning
-## Deep Learning for Natural Language Processing
-## University of Amsterdam, September-October 2018
-## Davide Belli, Gabriele Cesa, Alexander Geenen, Linda Petrini and Gautier Dagan
+#### Deep Learning for Natural Language Processing
+#### University of Amsterdam, September-October 2018
+#### Davide Belli, Gabriele Cesa, Alexander Geenen, Linda Petrini and Gautier Dagan
 
 
 This is the repo for our Deep Learning for Natural Language Processing class, to run please unzip the data.zip folder and run our `main.py` script. 
