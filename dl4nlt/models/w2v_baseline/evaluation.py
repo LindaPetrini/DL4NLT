@@ -5,7 +5,7 @@ from dl4nlt.models import Doc2VecSVR
 import pickle
 import os.path
 from dl4nlt import ROOT
-from dl4nlt.dataloader import ASAP_Data
+from dl4nlt.datasets import ASAP_Data
 from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import cohen_kappa_score
 import numpy as np

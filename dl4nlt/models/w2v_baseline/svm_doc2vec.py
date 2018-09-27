@@ -2,7 +2,7 @@
 from sklearn.svm import SVR
 
 from gensim.models.doc2vec import Doc2Vec
-from dl4nlt.dataloader import ASAP_Data
+from dl4nlt.datasets import ASAP_Data
 
 from dl4nlt.models.w2v_baseline.build_doc2vec import OUTPUT_FILE as DOC2VEC_MODEL
 

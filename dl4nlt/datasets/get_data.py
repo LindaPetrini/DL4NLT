@@ -3,13 +3,12 @@ import os.path
 
 from dl4nlt import ROOT
 
-from dl4nlt.dataloader import ASAP_Data
+from dl4nlt.datasets import ASAP_Data
 import pickle
 import os
 
-
-
 DATA_FOLDER = os.path.join(ROOT, "data/")
+
 
 def get_dataset(name):
     

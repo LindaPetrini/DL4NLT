@@ -15,7 +15,7 @@ from dl4nlt import ROOT
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
 DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
-from dl4nlt.dataloader import load_dataset
+from dl4nlt.datasets import load_dataset
 from dl4nlt.models.lstm import CustomLSTM
 
 VALIDATION_BATCHSIZE = 1000
@@ -88,7 +88,6 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     print('| Validation loss: {} |'.format(valid_loss))
 
     valid_losses.append(valid_loss)
-    
 
     for e in range(epochs):
 
