@@ -10,25 +10,37 @@ from torch.nn import MSELoss
 
 from torch.optim import Adam
 from torch.optim import SGD
+import numpy as np
 
 from dl4nlt import ROOT
+
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
 DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
 from dl4nlt.dataloader import load_dataset
+from dl4nlt.dataloader import denormalize
+from dl4nlt.dataloader import norm_essay_set
 from dl4nlt.models.lstm import CustomLSTM
+from dl4nlt.models.lstm import kappa
 
-VALIDATION_BATCHSIZE = 1000
+from tensorboardX import SummaryWriter
+from datetime import datetime
 
-DROPOUT = 0.5
+
+##### DEFAULT PARAMS #####
+
+EXP_NAME = 'exp.model'
+DROPOUT = 0.3
 RNN_TYPE = 'LSTM'
-BATCHSIZE = 200
-EPOCHS = 20
+BATCHSIZE = 128
+EPOCHS = 10
 LR = 4e-3
+VALIDATION_BATCHSIZE = 1000
 
 
 def collate(batch):
     batch = sorted(batch, key=lambda b: -1 * len(b.tokenized))
+    lengths = list(map(lambda b: len(b.tokenized), batch))  # Needed for pack_padded in lstm
     
     X = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(b.tokenized).reshape(-1) for b in batch])
     
@@ -36,131 +48,127 @@ def collate(batch):
     
     y = torch.tensor([b.y for b in batch]).reshape(-1)
     
-    return X, s, y
-        
-    
+    return X, s, y, lengths
+
+
 def main(name, dataset, epochs, lr, batchsize, **kwargs):
+    def run_epoch(data, epoch, dataset, is_eval=False):
+        if is_eval:
+            model.eval()
+            data_len = valid_len
+        else:
+            model.train()
+            data_len = train_len
+        
+        loss = 0
+        cohen = 0
+        for i_batch, batch in enumerate(data):
+            x, s, t, l = batch
+            x = x.to(device)
+            t = t.to(device)
+            
+            hiddens = model.init_hidden(x.shape[1])
+            model.zero_grad()
+            
+            y = model(x, hiddens, l)[0]
+            this_loss = torch.sqrt(criterion(y, t))
+            
+            # Stuff for Cohen, not working
+            # k = []
+            # for i in range(y.shape[0]):
+            #     y_denorm = int(round(denormalize(s[i].item(), y[i].item())))
+            #     t_denorm = int(round(denormalize(s[i].item(), t[i].item())))
+            #     max = norm_essay_set[s[i].item()]['max']
+            #     min = norm_essay_set[s[i].item()]['min']
+            #     k.append(kappa(y_denorm, t_denorm, min_rating=min, max_rating=max))
+            # this_cohen = sum(k) / len(k)
+            
+            # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
+            if not is_eval:
+                this_loss.backward()
+                optimizer.step()
+                writer.add_scalar('Iteration training loss', this_loss.item(), epoch * len(data) + i_batch)
+            
+            # Weight scores depending on batch size (last batch is smaller)
+            loss += this_loss.item() * x.shape[1]
+            # cohen += this_cohen * x.shape[1]
+        
+        # Average over the size of the train/valid data
+        loss /= data_len
+        cohen /= data_len
+        return loss, 0  # TODO cohen
+    
+    ##############################################
+    ## Data, Model and Optimizer initialization ##
+    ##############################################
     
     outfile = os.path.join(OUTPUT_DIR, name)
-    
-    training, validation, _ = load_dataset(dataset)
-    
-    vocab_len = len(training.dict)
-    
-    model = CustomLSTM(vocab_len=vocab_len, **kwargs)
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-
-    training = DataLoader(training, batch_size=batchsize, shuffle=True, pin_memory=True, collate_fn=collate)
-    validation = DataLoader(validation, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
+    exp_name = 'runs/{} embeddingsFrom_{} dropout_{} batchsize_{} {}'.format(kwargs['rnn_type'],
+                                                                             kwargs['embeddings_path'],
+                                                                             kwargs['dropout'], batchsize,
+                                                                             datetime.now().strftime("%Y-%m-%d %H:%M"))
+    print(exp_name)
+    
+    writer = SummaryWriter(exp_name)
+    
+    training_set, validation_set, _ = load_dataset(dataset)
+    train_len, valid_len = len(training_set), len(validation_set)
+    vocab_len = len(training_set.dict)
+    
+    model = CustomLSTM(vocab_len=vocab_len, **kwargs)
+    model.to(device)
+    print(model)
+    
+    training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True, collate_fn=collate)
+    validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
                             collate_fn=collate)
-
-    loss = MSELoss()
+    
+    criterion = MSELoss()
     # optimizer = Adam(model.parameters(), lr)
     optimizer = SGD(model.parameters(), lr)
-    model.to(device)
-
-    train_losses = []
-    valid_losses = []
-
+    
     print('\n###############################################')
     print('Starting epoch 0 (Random Guessing)')
-
-    model.eval()
-
-    valid_loss = 0
-    for i_batch, batch in enumerate(validation):
-        x, s, t = batch
+    loss, cohen = run_epoch(validation, 0, validation_set, is_eval=True)
+    print('| Valid Loss: {} |  cohen: {} |\n'.format(loss, cohen))
     
-        x = x.to(device)
-        t = t.to(device)
+    train_losses = []
+    valid_losses = []
+    train_cohen = []
+    valid_cohen = []
     
-        hiddens = model.init_hidden(x.shape[1])
-    
-        y = model(x, hiddens)[0]
-    
-        l = torch.sqrt(loss(y, t)).item()
-    
-        valid_loss += l * x.shape[1]
-
-    valid_loss /= len(validation)
-    print('| Validation loss: {} |'.format(valid_loss))
-
-    valid_losses.append(valid_loss)
-    
-
     for e in range(epochs):
-
-        train_loss = 0
-        valid_loss = 0
         
-
         print('###############################################')
         print('Starting epoch {}'.format(e + 1))
         
-        model.train()
-    
-        for i_batch, batch in enumerate(training):
-            x, s, t = batch
+        loss, cohen = run_epoch(training, e, training_set, is_eval=False)
+        train_losses.append(loss)
+        train_cohen.append(cohen)
+        print('| Train Loss: {} |  cohen: {} |'.format(loss, cohen))
+        writer.add_scalar('Epoch training loss', loss, e)
         
-            x = x.to(device)
-            t = t.to(device)
+        loss, cohen = run_epoch(validation, e, validation_set, is_eval=True)
+        valid_losses.append(loss)
+        valid_cohen.append(cohen)
+        print('| Valid Loss: {} |  cohen: {} |'.format(loss, cohen))
+        writer.add_scalar('Epoch validation loss', loss, e)
         
-            hiddens = model.init_hidden(x.shape[1])
-            model.zero_grad()
-        
-            y = model(x, hiddens)[0]
-        
-            l = torch.sqrt(loss(y, t))
-
-            # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
-            
-            l.backward()
-            optimizer.step()
-        
-            train_loss += l.item() * x.shape[1]
-    
-        train_loss /= len(training)
-        train_losses.append(train_loss)
-    
-        print('| Training loss: {} |'.format(train_loss))
-
-        model.eval()
-
-        for i_batch, batch in enumerate(validation):
-            x, s, t = batch
-    
-            x = x.to(device)
-            t = t.to(device)
-    
-            hiddens = model.init_hidden(x.shape[1])
-    
-            y = model(x, hiddens)[0]
-    
-            l = torch.sqrt(loss(y, t)).item()
-    
-            valid_loss += l * x.shape[1]
-
-        valid_loss /= len(validation)
-        print('| Validation loss: {} |'.format(valid_loss))
-
-        if not len(valid_losses) == 0 and valid_loss < min(valid_losses):
+        # Save best model so far
+        if not len(train_cohen) == 0 and cohen < min(train_cohen):
             with open(outfile, 'wb') as of:
                 pickle.dump(model, of)
-            print('|\tModel Saved!')
-
-        valid_losses.append(valid_loss)
-    
-        # print('Finished epoch {}'.format(e))
-        # print('###############################################')
-        # print('\n')
+            print('|\tBest validation accuracy: Model Saved!')
+        
+        print()
 
 
 if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, default='exp.model',
+    parser.add_argument('--name', type=str, default=EXP_NAME,
                         help='Name of the experiment (used for output file name)')
     parser.add_argument('--dataset', type=str, default=DATASET_DIR,
                         help='Path to the folder containg the dataset')
@@ -186,4 +194,3 @@ if __name__ == '__main__':
     
     FLAGS = parser.parse_args()
     main(**vars(FLAGS))
-

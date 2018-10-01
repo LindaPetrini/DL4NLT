@@ -33,6 +33,8 @@ class CustomLSTM(nn.Module):
         self.decoder2 = nn.Linear(self.linear_size, n_output)
         self.sigmoid = nn.Sigmoid()
         
+        self.single_decoder = nn.Linear(n_hidden_units, n_output)
+        
         if embeddings_path is not None:
             self.init_emb_from_file(embeddings_path)
         
@@ -43,31 +45,34 @@ class CustomLSTM(nn.Module):
         self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
-    
-    def forward(self, input, hidden):
-        emb = self.drop(self.encoder(input))
-        output, hidden = self.rnn(emb, hidden)
-        output = self.drop(output[-1, :, :])  # Take last prediction from the sequence
-        
-        output = self.decoder(output.view(-1, self.n_hidden_units))
-        output = self.decoder2(self.relu(output))
-        
-        # output = self.sigmoid(output)
-        result = output.view(-1)
-        return result, hidden
-    
+
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
-        
+
         if self.rnn_type == 'LSTM':
             return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(),
                     weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_())
         else:
-            return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(), )
-    
+            return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(),)
+
     def init_emb_from_file(self, path):
         emb_mat = np.genfromtxt(path)
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+    
+    def forward(self, input, hidden, l):
+        emb = self.drop(self.encoder(input))
+        packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
+        output, hidden = self.rnn(packed, hidden)
+        unpacked, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
+        output = self.drop(unpacked[-1, :, :])  # Take last prediction from the sequence
+        
+        # output = self.decoder(output)
+        # output = self.decoder2(self.relu(output))
+        output = self.single_decoder(output)
+        
+        # output = self.sigmoid(output)
+        result = output.view(-1)
+        return result, hidden
 
 
 if __name__ == "__main__":
