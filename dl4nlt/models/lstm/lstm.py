@@ -22,9 +22,12 @@ class CustomLSTM(nn.Module):
         self.encoder = nn.Embedding(vocab_len, emb_size, padding_idx=0)
         if rnn_type in ['LSTM', 'GRU', 'BLTSM']:
             is_bidirectional = True if rnn_type == 'BLSTM' else False
+            if rnn_type is 'BLSTM':
+                rnn_type = 'LSTM'
             self.rnn = getattr(nn, rnn_type)(emb_size, n_hidden_units, n_hidden_layers,
                                              dropout=dropout,
-                                             bidirectional=is_bidirectional)  # Dropout added only for n_layers > 1
+                                             bidirectional=is_bidirectional,
+                                             batch_first=False)  # Dropout added only for n_layers > 1
         else:
             raise ValueError("An invalid option for `--model` was supplied, options are ['LSTM', 'GRU', 'BLSTM']")
         
@@ -60,15 +63,23 @@ class CustomLSTM(nn.Module):
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
     
     def forward(self, input, hidden, l):
-        emb = self.drop(self.encoder(input))
-        packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
-        output, hidden = self.rnn(packed, hidden)
-        unpacked, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
-        output = self.drop(unpacked[-1, :, :])  # Take last prediction from the sequence
+        
+        emb = self.encoder(input)
+        
+        # packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
+        # output, hidden = self.rnn(packed)
+        # unpacked, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
+
+        
+        output, hidden = self.rnn(emb)
+        output = output[-1, :, :]  # Take last prediction from the sequence
+
+        # output = self.drop(unpacked[-1, :, :])  # Take last prediction from the sequence
         
         # output = self.decoder(output)
         # output = self.decoder2(self.relu(output))
         output = self.single_decoder(output)
+        # print(emb.shape, unpacked.shape, output.shape)
         
         # output = self.sigmoid(output)
         result = output.view(-1)
