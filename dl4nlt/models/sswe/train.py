@@ -20,16 +20,16 @@ from dl4nlt.models.sswe import SSWEModel
 
 from context_dataset import ContextDateset
 
-ERROR_RATE = 4
-CONTEXT_SIZE = 5
-ALPHA = 0.5
+ERROR_RATE = 200
+CONTEXT_SIZE = 9
+ALPHA = 0.1
 
 EMBEDDINGS = 200
-HIDDEN_UNITS = CONTEXT_SIZE*EMBEDDINGS//3
+HIDDEN_UNITS = 100
 
 BATCHSIZE = 1000
 EPOCHS = 5
-LR = 1e-3
+LR = 1e-7
         
     
 def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwargs):
@@ -108,10 +108,12 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             score_l = score_loss(fs[:, 0], t)
             
             # the loss for the context
-            score_c = torch.clamp(1 - fc[:, 0].view(-1, 1) + fc[:, 1:], min=0).sum()
+            score_c = torch.clamp(1 - fc[:, 0].view(-1, 1) + fc[:, 1:], min=0).mean()
             
             # the final loss is the weighted sum of these 2 losses
             l = (1 - alpha) * score_l + alpha * score_c
+            
+            l /= x.shape[0]
 
             l.backward()
             optimizer.step()

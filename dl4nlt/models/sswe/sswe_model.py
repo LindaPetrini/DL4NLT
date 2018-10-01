@@ -24,15 +24,26 @@ class SSWEModel(nn.Module):
         
         self.hidden_to_context = nn.Linear(n_hidden_units, 1)
         self.hidden_to_score = nn.Linear(n_hidden_units, 1)
-        
+
         self.init_weights()
         
     def init_weights(self):
-        initrange = 0.1
-        self.embeddings.weight.data.uniform_(-initrange, initrange)
-        # self.emb_to_hidden.weight.data
-        # self.emb_to_hidden.bias.data.fill_(0)
+        # initrange = 0.5
+        # self.embeddings.weight.data.uniform_(-initrange, initrange)
+        # self.emb_to_hidden.weight.data.randn_(-initrange, initrange)
+        # self.emb_to_hidden.bias.data.randn_(0)
         # self.decoder.weight.data.uniform_(-initrange, initrange)
+
+        torch.nn.init.normal_(self.embeddings.weight.data, mean=0, std=1)
+        
+        torch.nn.init.normal_(self.emb_to_hidden.weight.data, mean=0, std=1/self.emb_to_hidden.in_features)
+        torch.nn.init.constant_(self.emb_to_hidden.bias.data, 0)
+        
+        torch.nn.init.normal_(self.hidden_to_context.weight.data, mean=0, std=1/self.hidden_to_context.in_features)
+        torch.nn.init.constant_(self.hidden_to_context.bias.data, 0)
+        
+        torch.nn.init.normal_(self.hidden_to_score.weight.data, mean=0, std=1/self.hidden_to_score.in_features)
+        torch.nn.init.constant_(self.hidden_to_score.bias.data, 0)
     
     def forward(self, input):
         

@@ -19,7 +19,7 @@ DATA_FOLDER = os.path.join(ROOT, "models/sswe/data/")
 
 class ContextDateset(Dataset):
     
-    def __init__(self, dataset: ASAP_Data, context_size, error_rate):
+    def __init__(self, dataset: ASAP_Data, context_size):
         
         essays = dataset.data
         
