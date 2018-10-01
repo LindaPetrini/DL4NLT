@@ -17,9 +17,8 @@ from dl4nlt import ROOT
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
 DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
-from dl4nlt.dataloader import load_dataset
-from dl4nlt.dataloader import denormalize
-from dl4nlt.dataloader import norm_essay_set
+# from dl4nlt.dataloader import denormalize
+# from dl4nlt.dataloader import norm_essay_set
 from dl4nlt.datasets import load_dataset
 from dl4nlt.models.lstm import CustomLSTM
 from dl4nlt.models.lstm import kappa
