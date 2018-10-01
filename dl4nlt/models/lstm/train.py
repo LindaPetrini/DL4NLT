@@ -20,6 +20,7 @@ DATASET_DIR = os.path.join(ROOT, "data/baseline")
 from dl4nlt.dataloader import load_dataset
 from dl4nlt.dataloader import denormalize
 from dl4nlt.dataloader import norm_essay_set
+from dl4nlt.datasets import load_dataset
 from dl4nlt.models.lstm import CustomLSTM
 from dl4nlt.models.lstm import kappa
 
@@ -133,12 +134,13 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     print('Starting epoch 0 (Random Guessing)')
     loss, cohen = run_epoch(validation, 0, validation_set, is_eval=True)
     print('| Valid Loss: {} |  cohen: {} |\n'.format(loss, cohen))
-    
+
     train_losses = []
     valid_losses = []
     train_cohen = []
     valid_cohen = []
     
+
     for e in range(epochs):
         
         print('###############################################')

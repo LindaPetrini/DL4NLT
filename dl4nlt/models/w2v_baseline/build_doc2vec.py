@@ -1,6 +1,6 @@
 
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-from dl4nlt.dataloader import ASAP_Data
+from dl4nlt.datasets import ASAP_Data
 import argparse
 import os.path
 import numpy as np

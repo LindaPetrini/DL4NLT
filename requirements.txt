@@ -14,3 +14,5 @@ symspellpy
 
 # nltk
 pandas
+allennlp
+wget
