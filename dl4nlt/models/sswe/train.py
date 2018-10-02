@@ -31,7 +31,26 @@ BATCHSIZE = 1000
 EPOCHS = 5
 LR = 1e-4
         
-    
+
+def save_model_checkpoint(state, filename):
+    """
+    saves a model to filename - in folder called saved_models
+    """
+    filename = os.path.join('dl4nlt/models/sswe/saved_models', filename)
+    torch.save(state, filename)
+
+def load_latest_sswe_model(vocab_len, context_size, **kwargs):
+    """
+    loads the sswe model saved
+    needs to be passed the same arguments as in training
+    """
+    model = SSWEModel(vocab_len=vocab_len, context_size=context_size, **kwargs)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load('dl4nlt/models/sswe/saved_models/latest.pth.tar', map_location=device)
+    model.load_state_dict(checkpoint['state_dict'])
+    return model
+
+
 def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwargs):
     
     assert 0. <= alpha <= 1.
@@ -96,9 +115,6 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             if i_batch % 100 == 0:
                     print("{}/{}".format(i_batch, len(training)))
             
-            # test = 0
-            # while test < 100:
-
             x, t = batch            
             x = x.to(device)
             t = t.to(device)
@@ -106,9 +122,7 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             model.zero_grad()
         
             fc, fs = model(x)
-            
-            # print(fc.shape, fs.shape)
-            
+                        
             # the loss for the score prediction applies only to the original sequence (i.e. the first one)
             score_l = score_loss(fs[:, 0], t)
             
@@ -117,11 +131,6 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             
             # the final loss is the weighted sum of these 2 losses
             l = (1 - alpha) * score_l + alpha * score_c
-            # print("l:")
-            # print("context loss: {}\t|| score loss: {}\t|| total loss: {}".format(score_c.item(), score_l.item(), l.item()))
-            # print("context loss: {}".format(score_c.item()))
-            # score_c.backward()
-            # train_loss += score_c.item() * x.shape[1]
 
             l.backward()
             optimizer.step()
@@ -130,15 +139,18 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             
             if i_batch % 10 == 0:
                 print('| Training loss at {}: {} |'.format(i_batch, (train_loss/(i_batch+1))))
-                # test += 1
-        
+                
+            
         train_loss /= len(training)
         train_losses.append(train_loss)
     
         print('| Training loss: {} |'.format(train_loss))
 
-        with open(outfile, 'wb') as of:
-            pickle.dump(model.embeddings, of)
+        print("Saving Model checkpoint")
+        save_model_checkpoint({                
+                'state_dict': model.state_dict(),              
+            } , 'latest.pth.tar')
+            
         print('|\tModel Saved!')
 
         # print('Finished epoch {}'.format(e))
