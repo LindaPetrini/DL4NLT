@@ -29,6 +29,7 @@ class CustomLSTM(nn.Module):
         self.n_hidden_layers = n_hidden_layers
         self.linear_size = 30
         self.output_size = n_output
+        self.blstm = False
         
         self.drop = nn.Dropout(dropout)
 
@@ -39,9 +40,10 @@ class CustomLSTM(nn.Module):
         else:
             raise ValueError("ERROR! 'embeddings' parameter not valid: it should be either a positive integer or a path to the embeddings file")
         
-        if rnn_type in ['LSTM', 'GRU', 'BLTSM']:
+        if rnn_type in ['LSTM', 'GRU', 'BLSTM']:
             is_bidirectional = True if rnn_type == 'BLSTM' else False
             if rnn_type is 'BLSTM':
+                self.blstm = True
                 rnn_type = 'LSTM'
             self.rnn = getattr(nn, rnn_type)(self.encoder.embedding_dim, n_hidden_units, n_hidden_layers,
                                              dropout=dropout,
@@ -90,7 +92,11 @@ class CustomLSTM(nn.Module):
         output, _ = self.rnn(packed)
         unpacked, pack_length = torch.nn.utils.rnn.pad_packed_sequence(output)
         
-        idx = pack_length.view(1, -1, 1).expand(1, -1, self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
+        if self.blstm:
+            idx = pack_length.view(1, -1, 1).expand(1, -1, 2 * self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
+        else:
+            idx = pack_length.view(1, -1, 1).expand(1, -1, self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
+        
         output = torch.gather(unpacked, 0, idx).squeeze(0)
         
         output = self.drop(output)

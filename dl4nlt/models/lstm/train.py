@@ -34,7 +34,7 @@ DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
 EXP_NAME = ''
 DROPOUT = 0.5
-RNN_TYPE = 'LSTM'
+RNN_TYPE = 'BLSTM'
 BATCHSIZE = 128
 EPOCHS = 20
 LR = 0.0005
@@ -120,7 +120,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     exp_name = '{} embeddingsFrom_{} dropout_{} lr_{} batchsize_{} {}'.format(kwargs['rnn_type'] + name,
-                                                                              kwargs['embeddings_path'],
+                                                                              kwargs['embeddings'],
                                                                               kwargs['dropout'], lr,
                                                                               batchsize,
                                                                               datetime.now().strftime(
@@ -132,7 +132,8 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     outfile_metrics_train = os.path.join(outfile, "metrics_train.csv")
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
-    os.makedirs(outfile)
+    if not os.path.exists(outfile):
+        os.makedirs(outfile)
     
     writer = SummaryWriter("runs/" + exp_name)
     
