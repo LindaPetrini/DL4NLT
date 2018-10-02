@@ -44,7 +44,7 @@ def train(config):
 
     if config.embedding_type is "ELMO":
         model = EmbeddingGRU(
-            input_size=128,
+            input_size=100,
             hidden_size=config.rnn_cell_dim,
             n_layers=config.num_rnn_layers,
             dropout=0.1,
@@ -68,11 +68,10 @@ def train(config):
         epoch_loss = 0
 
         for batch_num, batch in enumerate(training_dataloader):
+            optimizer.zero_grad()
+
             batch_input, lengths, targets = batch
-
             targets = targets.float().to(config.device)
-
-            model.zero_grad()
 
             outputs, hidden = model(batch_input, lengths)
 
@@ -80,7 +79,7 @@ def train(config):
 
             loss.backward()
             optimizer.step()
-            writer.add_scalar('Iteration training loss', loss.item(), e * len(training_dataloader) + batch_num)
+            writer.add_scalar('Iteration training loss', float(loss.item()), e * len(training_dataloader) + batch_num)
 
             print(f"Batch loss {float(loss.item())}")
             epoch_loss += float(loss.item()) * len(batch_input)
@@ -103,7 +102,7 @@ if __name__ == "__main__":
                         help='Device to run computations on')
     parser.add_argument('--dataset', type=str, default=DATASET_DIR,
                         help='Path to the folder containg the dataset')
-    parser.add_argument('--batch_size', type=int, default=2,
+    parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=20,
                         help='Number of epochs to train for')
@@ -111,7 +110,7 @@ if __name__ == "__main__":
                         help='Learning rate for training')
     parser.add_argument('--embedding_type', type=str, default='ELMO',
                         help='Type of Embedding to use (ELMO, GLOVE)')
-    parser.add_argument('--rnn_cell_dim', type=int, default=128,
+    parser.add_argument('--rnn_cell_dim', type=int, default=80,
                         help='Size of hidden dimension for the RNN cells')
     parser.add_argument('--num_rnn_layers', type=int, default=1,
                         help='Number of RNN layers')
