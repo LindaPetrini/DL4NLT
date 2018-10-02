@@ -43,7 +43,7 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
     
     training, _, _ = load_dataset(dataset)
     
-    training = ContextDateset(training, context_size, error_rate)
+    training = ContextDateset(training, context_size)
     
     vocab_len = len(training.dict)
     
@@ -104,6 +104,8 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
         
             fc, fs = model(x)
             
+            print(fc.shape, fs.shape)
+            
             # the loss for the score prediction applies only to the original sequence (i.e. the first one)
             score_l = score_loss(fs[:, 0], t)
             
@@ -112,8 +114,6 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             
             # the final loss is the weighted sum of these 2 losses
             l = (1 - alpha) * score_l + alpha * score_c
-            
-            l /= x.shape[0]
 
             l.backward()
             optimizer.step()
