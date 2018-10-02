@@ -53,17 +53,17 @@ def create_collate(use_elmo=False):
     
         return X, s, y, lengths
 
-    def elmo_collate(batch):
-        X = batch_to_ids([b.essay for b in batch])
-
-        s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
-
-        y = torch.tensor([b.y for b in batch]).reshape(-1)
-
-        return X, s, y, []
-
-    if use_elmo:
-        return elmo_collate
+    # def elmo_collate(batch):
+    #     X = batch_to_ids([b.essay for b in batch])
+    #
+    #     s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
+    #
+    #     y = torch.tensor([b.y for b in batch]).reshape(-1)
+    #
+    #     return X, s, y, []
+    #
+    # if use_elmo:
+    #     return elmo_collate
 
     return collate
 
