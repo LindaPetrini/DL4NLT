@@ -22,18 +22,21 @@ class EmbeddingGRU(nn.Module):
 
         if elmo:
             self.embedding = create_elmo_embedding()
+            self.embedding_projection = nn.Linear(1024, input_size)
         else:
             self.embedding = create_glove_embedding(target_vocab=target_vocab)
+            self.embedding_projection = nn.Linear(input_size, input_size)
 
         self.gru = nn.GRU(input_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         self.linear = nn.Linear(hidden_size, n_outputs)
 
     def forward(self, input_seqs, input_lengths, hidden=None):
-        input_seqs = batch_to_ids(input_seqs)
+        input_seqs = batch_to_ids(input_seqs).to(self.device)
         embedded, _ = self.elmo_to_torch(self.embedding(input_seqs))
         embedded = embedded[0].to(self.device).transpose(0, 1)
+        emb_projection = self.embedding_projection(embedded)
 
-        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(emb_projection, input_lengths)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs)  # unpack (back to padded)
         outputs = outputs[:, :, :self.hidden_size] + outputs[:, :, self.hidden_size:]  # Sum bidirectional outputs

@@ -44,7 +44,7 @@ def train(config):
 
     if config.embedding_type is "ELMO":
         model = EmbeddingGRU(
-            input_size=1024,
+            input_size=128,
             hidden_size=config.rnn_cell_dim,
             n_layers=config.num_rnn_layers,
             dropout=0.1,
@@ -105,15 +105,15 @@ if __name__ == "__main__":
                         help='Path to the folder containg the dataset')
     parser.add_argument('--batch_size', type=int, default=2,
                         help='Batch size for training')
-    parser.add_argument('--num_epochs', type=int, default=1,
+    parser.add_argument('--num_epochs', type=int, default=20,
                         help='Number of epochs to train for')
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for training')
     parser.add_argument('--embedding_type', type=str, default='ELMO',
                         help='Type of Embedding to use (ELMO, GLOVE)')
-    parser.add_argument('--rnn_cell_dim', type=int, default=12,
+    parser.add_argument('--rnn_cell_dim', type=int, default=128,
                         help='Size of hidden dimension for the RNN cells')
-    parser.add_argument('--num_rnn_layers', type=int, default=2,
+    parser.add_argument('--num_rnn_layers', type=int, default=1,
                         help='Number of RNN layers')
     parser.add_argument('--rnn_dropout', type=float, default=0.1,
                         help='Dropout probability between RNN layers')
