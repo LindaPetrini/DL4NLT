@@ -130,7 +130,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     exp_name = 'runs/{} embeddingsFrom_{} dropout_{} batchsize_{} {}'.format(kwargs['rnn_type'] + EXP_NAME,
-                                                                             kwargs['embeddings_path'],
+                                                                             kwargs['embeddings'],
                                                                              kwargs['dropout'], batchsize,
                                                                              datetime.now().strftime("%Y-%m-%d %H:%M"))
     print(exp_name)
@@ -186,8 +186,8 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
             with open(outfile, 'wb') as of:
                 pickle.dump(model, of)
             print('|\tBest validation accuracy: Model Saved!')
-        
-        print()
+
+    return min(valid_losses), max(valid_cohen), outfile
 
 
 if __name__ == '__main__':
@@ -218,4 +218,15 @@ if __name__ == '__main__':
                         help='Path to the file containing the pre-trained embeddings')
     
     FLAGS = parser.parse_args()
-    main(**vars(FLAGS))
+    params = vars(FLAGS)
+    
+    if 'emb_size' in params:
+        params['embeddings'] = params['emb_size']
+        del params['emb_size']
+
+    if 'embeddings_path' in params:
+        if params['embeddings_path'] is not None:
+            params['embeddings'] = params['embeddings_path']
+        del params['embeddings_path']
+    
+    main(**params)

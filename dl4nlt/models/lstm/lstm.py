@@ -5,14 +5,12 @@ import numpy as np
 
 
 class CustomLSTM(nn.Module):
-    def __init__(self, vocab_len, emb_size, n_hidden_units, device, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM',
-                 embeddings_path=None):
+    def __init__(self, vocab_len, embeddings, n_hidden_units, device, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM'):
         super(CustomLSTM, self).__init__()
         
         torch.manual_seed(42)
         
         self.device = device
-        self.emb_size = emb_size
         self.rnn_type = rnn_type
         self.n_hidden_units = n_hidden_units
         self.n_hidden_layers = n_hidden_layers
@@ -20,12 +18,19 @@ class CustomLSTM(nn.Module):
         self.output_size = n_output
         
         self.drop = nn.Dropout(dropout)
-        self.encoder = nn.Embedding(vocab_len, emb_size, padding_idx=0)
+
+        if isinstance(embeddings, str):
+            self.init_emb_from_file(embeddings)
+        elif embeddings is not None and isinstance(embeddings, int) and embeddings > 0:
+            self.encoder = nn.Embedding(vocab_len, embeddings, padding_idx=0)
+        else:
+            raise ValueError("ERROR! 'embeddings' parameter not valid: it should be either a positive integer or a path to the embeddings file")
+        
         if rnn_type in ['LSTM', 'GRU', 'BLTSM']:
             is_bidirectional = True if rnn_type == 'BLSTM' else False
             if rnn_type is 'BLSTM':
                 rnn_type = 'LSTM'
-            self.rnn = getattr(nn, rnn_type)(emb_size, n_hidden_units, n_hidden_layers,
+            self.rnn = getattr(nn, rnn_type)(self.encoder.embedding_dim, n_hidden_units, n_hidden_layers,
                                              dropout=dropout,
                                              bidirectional=is_bidirectional,
                                              batch_first=False)  # Dropout added only for n_layers > 1
@@ -39,8 +44,7 @@ class CustomLSTM(nn.Module):
         
         self.single_decoder = nn.Linear(n_hidden_units, n_output)
         
-        if embeddings_path is not None:
-            self.init_emb_from_file(embeddings_path)
+        
         
         # self.init_weights()
     
@@ -61,6 +65,8 @@ class CustomLSTM(nn.Module):
 
     def init_emb_from_file(self, path):
         emb_mat = np.genfromtxt(path)
+        # TODO - infer the embedding directly from the file, without building the module beforehand
+        self.encoder = ...
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
     
     def forward(self, input, hidden, l):
