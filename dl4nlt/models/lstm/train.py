@@ -60,7 +60,7 @@ def create_collate(use_elmo=False):
     return collate
 
 
-def main(name, dataset, epochs, lr, batchsize, **kwargs):
+def train(name, dataset, epochs, lr, batchsize, **kwargs):
     def run_epoch(data, epoch, is_eval=False):
         if is_eval:
             model.eval()
@@ -117,25 +117,19 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     ## Data, Model and Optimizer initialization ##
     ##############################################
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
-    exp_name = '{} embeddingsFrom_{} dropout_{} lr_{} batchsize_{} {}'.format(kwargs['rnn_type'] + name,
-                                                                              kwargs['embeddings'],
-                                                                              kwargs['dropout'], lr,
-                                                                              batchsize,
-                                                                              datetime.now().strftime(
-                                                                                  "%Y-%m-%d %H:%M"))
-    print(exp_name)
-    outfile = os.path.join(OUTPUT_DIR, exp_name)
-    outfile_metrics = os.path.join(outfile, "metrics.pickle")
-    outfile_metrics_valid = os.path.join(outfile, "metrics_valid.csv")
-    outfile_metrics_train = os.path.join(outfile, "metrics_train.csv")
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-    if not os.path.exists(outfile):
-        os.makedirs(outfile)
+    outdir = os.path.join(OUTPUT_DIR, name)
     
-    writer = SummaryWriter("runs/" + exp_name)
+    print('Outdir:', outdir)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    outfile_metrics = os.path.join(outdir, "metrics.pickle")
+    outfile_metrics_valid = os.path.join(outdir, "metrics_valid.csv")
+    outfile_metrics_train = os.path.join(outdir, "metrics_train.csv")
+    
+    os.makedirs(outdir, exist_ok=True)
+    
+    writer = SummaryWriter(os.path.join('runs', name))
     
     training_set, validation_set, _ = load_dataset(dataset)
     train_len, valid_len = len(training_set), len(validation_set)
@@ -147,7 +141,6 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     
     model = CustomLSTM(vocab_len=vocab_len, device=device, **kwargs)
     model.to(device)
-    print(model)
     
     criterion = MSELoss()
     optimizer = Adam(model.parameters(), lr)
@@ -196,14 +189,14 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=True)
         update_csv(outfile_metrics_valid, e, loss, pearson, spearman, kappa)
         
-        update_saved_model(metrics, model, optimizer, e, outfile)
+        update_saved_model(metrics, model, optimizer, e, outdir)
         update_metrics_pickle(metrics, outfile_metrics)
         
         print()
     
     print("Finished training in {:.1f} minutes ".format((time.time() - start_time) / 60))
     
-    return min(metrics["valid"]["rmse"]), max(metrics["valid"]["kappa"]), outfile
+    return min(metrics["valid"]["rmse"]), max(metrics["valid"]["kappa"])
 
 
 if __name__ == '__main__':
@@ -245,4 +238,4 @@ if __name__ == '__main__':
             params['embeddings'] = params['embeddings_path']
         del params['embeddings_path']
     
-    main(**params)
+    train(**params)
