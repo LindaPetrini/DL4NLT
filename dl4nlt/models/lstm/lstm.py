@@ -3,6 +3,19 @@ import torch.nn as nn
 from torch.nn import init
 import numpy as np
 
+def load_latest_sswe_embeddings(path):
+    """
+    loads the last sswe embedding layer saved
+    embeddings = load_latest_sswe_embeddings()
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(path, map_location=device)
+    vocab_len = checkpoint['state_dict']['embeddings.weight'].size()[0]
+    emb_size = checkpoint['state_dict']['embeddings.weight'].size()[1]
+    embedding_layer = torch.nn.Embedding(vocab_len, emb_size, padding_idx=0).to(device)
+    embedding_layer.weight.data = checkpoint['state_dict']['embeddings.weight']
+    return embedding_layer
+
 
 class CustomLSTM(nn.Module):
     def __init__(self, vocab_len, embeddings, n_hidden_units, device, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM'):
@@ -63,18 +76,18 @@ class CustomLSTM(nn.Module):
         else:
             return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(),)
 
-    def init_emb_from_file(self, path):
-        emb_mat = np.genfromtxt(path)
-        # TODO - infer the embedding directly from the file, without building the module beforehand
-        self.encoder = ...
-        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+    def init_emb_from_file(self, path='dl4nlt/models/sswe/saved_models/latest.pth.tar'):
+        # emb_mat = np.genfromtxt(path)
+        # - infer the embedding directly from the file, without building the module beforehand
+        # self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+        self.encoder = load_latest_sswe_embeddings(path)
     
-    def forward(self, input, hidden, l):
+    def forward(self, input, l):
         
         emb = self.encoder(input)
         
         packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
-        output, hidden = self.rnn(packed)
+        output, _ = self.rnn(packed)
         unpacked, pack_length = torch.nn.utils.rnn.pad_packed_sequence(output)
         
         idx = pack_length.view(1, -1, 1).expand(1, -1, self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
@@ -89,7 +102,7 @@ class CustomLSTM(nn.Module):
         
         # output = self.sigmoid(output)
         
-        return output.view(-1), hidden
+        return output.view(-1)
 
 
 if __name__ == "__main__":

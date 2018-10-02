@@ -39,17 +39,6 @@ def save_model_checkpoint(state, filename):
     filename = os.path.join('dl4nlt/models/sswe/saved_models', filename)
     torch.save(state, filename)
 
-def load_latest_sswe_model(vocab_len, context_size, **kwargs):
-    """
-    loads the sswe model saved
-    needs to be passed the same arguments as in training
-    """
-    model = SSWEModel(vocab_len=vocab_len, context_size=context_size, **kwargs)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load('dl4nlt/models/sswe/saved_models/latest.pth.tar', map_location=device)
-    model.load_state_dict(checkpoint['state_dict'])
-    return model
-
 
 def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwargs):
     

@@ -8,7 +8,7 @@ from datetime import datetime
 
 from dl4nlt import ROOT
 
-from dl4nlt.models.lstm import train
+from dl4nlt.models.lstm.train import train
 
 OUTPUT_FILE = os.path.join(ROOT, "models/lstm/experiments/exp.csv")
 DATASET_DIR = os.path.join(ROOT, "data/baseline")
@@ -33,12 +33,11 @@ defaults = {
     'epochs': 40,
     'lr': 3e-3,
     'batchsize': 128,
-    'emb_size': 200,
     'n_hidden_units': 100,
     'n_hidden_layers': 1,
     'dropout': 0.1,
     'rnn_type': 'LSTM',
-    'embeddings_path': None,
+    'embeddings': 200,
 }
 
 for k, v in defaults.items():
@@ -74,16 +73,16 @@ logs = []
 for i, c in enumerate(combinations):
     print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
     print('{}/{}'.format(i, tot))
-    print(c, '\n')
+    # print(c, '\n')
 
     conf = {k: v for k, v in zip(params_names, c)}
 
     name = "(" + ";".join([str(conf[k]) for k in experiments_keys]) + ")"
-    exp_name = 'runs/{}_{}'.format(name, datetime.now().strftime("%Y-%m-%d %H:%M"))
+    exp_name = '{}_{}'.format(name, datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     conf['name'] = exp_name
-    
-    min_loss, max_cohen, outfile = train(conf)
+    print(conf, '\n')
+    min_loss, max_cohen, outfile = train(**conf)
     
     row = list(c) + [min_loss, max_cohen, outfile]
     logs.append(row)
