@@ -7,8 +7,14 @@ import tensorboardX
 import torch
 from torch.utils.data import DataLoader
 
+
+import numpy as np
+from scipy.stats import spearmanr, pearsonr
+from sklearn.metrics import cohen_kappa_score
+
+
 from dl4nlt import ROOT
-from dl4nlt.datasets.dataset import ASAP_Data
+from dl4nlt.datasets.dataset import ASAP_Data, denormalize_vec
 from dl4nlt.models.embeddings.embedding_gru import EmbeddingGRU
 
 
@@ -18,11 +24,13 @@ def create_collate(use_elmo=True):
 
         essays = list(map(lambda b: b.essay, sorted_batch))
 
+        essay_sets = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
+
         lengths = list(map(lambda b: len(b.essay), sorted_batch))
 
         targets = torch.LongTensor([b.y for b in sorted_batch]).reshape(-1)
 
-        return essays, lengths, targets
+        return essays, lengths, essay_sets, targets
 
     return elmo_collate if use_elmo else lambda x: x
 
@@ -70,7 +78,7 @@ def train(config):
         for batch_num, batch in enumerate(training_dataloader):
             optimizer.zero_grad()
 
-            batch_input, lengths, targets = batch
+            batch_input, lengths, essay_sets, targets = batch
             targets = targets.float().to(config.device)
 
             outputs, hidden = model(batch_input, lengths)
@@ -80,6 +88,11 @@ def train(config):
             loss.backward()
             optimizer.step()
             writer.add_scalar('Iteration training loss', float(loss.item()), e * len(training_dataloader) + batch_num)
+
+            y_denorm = denormalize_vec(essay_sets, outputs.detach(), config.device)
+            t_denorm = denormalize_vec(essay_sets, targets.detach(), config.device)
+            kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(1, 30)), weights="quadratic")
+
 
             print(f"Batch loss {float(loss.item())}")
             epoch_loss += float(loss.item()) * len(batch_input)
