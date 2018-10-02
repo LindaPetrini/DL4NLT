@@ -18,7 +18,7 @@ DATASET_DIR = os.path.join(ROOT, "data/baseline")
 from dl4nlt.datasets import load_dataset
 from dl4nlt.models.sswe import SSWEModel
 
-from context_dataset import ContextDateset
+from dl4nlt.models.sswe.context_dataset import ContextDateset
 
 ERROR_RATE = 200
 CONTEXT_SIZE = 9
@@ -29,7 +29,7 @@ HIDDEN_UNITS = 100
 
 BATCHSIZE = 1000
 EPOCHS = 5
-LR = 1e-7
+LR = 1e-4
         
     
 def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwargs):
@@ -76,8 +76,8 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
 
     score_loss = MSELoss()
     
-    # optimizer = Adam(model.parameters(), lr)
-    optimizer = SGD(model.parameters(), lr)
+    optimizer = Adam(model.parameters(), lr)
+    # optimizer = SGD(model.parameters(), lr)
     
     model.to(device)
 
@@ -94,9 +94,12 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
     
         for i_batch, batch in enumerate(training):
             if i_batch % 100 == 0:
-                print("{}/{}".format(i_batch, len(training)))
-            x, t = batch
-        
+                    print("{}/{}".format(i_batch, len(training)))
+            
+            # test = 0
+            # while test < 100:
+
+            x, t = batch            
             x = x.to(device)
             t = t.to(device)
         
@@ -104,7 +107,7 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
         
             fc, fs = model(x)
             
-            print(fc.shape, fs.shape)
+            # print(fc.shape, fs.shape)
             
             # the loss for the score prediction applies only to the original sequence (i.e. the first one)
             score_l = score_loss(fs[:, 0], t)
@@ -114,12 +117,21 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
             
             # the final loss is the weighted sum of these 2 losses
             l = (1 - alpha) * score_l + alpha * score_c
+            # print("l:")
+            # print("context loss: {}\t|| score loss: {}\t|| total loss: {}".format(score_c.item(), score_l.item(), l.item()))
+            # print("context loss: {}".format(score_c.item()))
+            # score_c.backward()
+            # train_loss += score_c.item() * x.shape[1]
 
             l.backward()
             optimizer.step()
         
             train_loss += l.item() * x.shape[1]
-    
+            
+            if i_batch % 10 == 0:
+                print('| Training loss at {}: {} |'.format(i_batch, (train_loss/(i_batch+1))))
+                # test += 1
+        
         train_loss /= len(training)
         train_losses.append(train_loss)
     
