@@ -57,7 +57,10 @@ class CustomLSTM(nn.Module):
         self.decoder2 = nn.Linear(self.linear_size, n_output)
         self.sigmoid = nn.Sigmoid()
         
-        self.single_decoder = nn.Linear(n_hidden_units, n_output)
+        if self.blstm:
+            self.single_decoder = nn.Linear(n_hidden_units * 2, n_output)
+        else:
+            self.single_decoder = nn.Linear(n_hidden_units, n_output)
         
         
         
