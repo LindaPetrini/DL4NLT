@@ -12,7 +12,7 @@ def create_elmo_embedding(elmo_weights_folder=data_dir):
     if not os.path.exists(elmo_options):
         download_elmo_weights()
 
-    elmo = Elmo(elmo_options, elmo_weights, 2, dropout=0)
+    elmo = Elmo(elmo_options, elmo_weights, 1, dropout=0)
     return elmo
 
 
