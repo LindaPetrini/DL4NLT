@@ -201,6 +201,8 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         print()
     
     print("Finished training in {:.1f} minutes ".format((time.time() - start_time) / 60))
+    
+    return min(metrics["valid"]["rmse"]), max(metrics["valid"]["kappa"]), outfile
 
 
 if __name__ == '__main__':
@@ -231,4 +233,15 @@ if __name__ == '__main__':
                         help='Path to the file containing the pre-trained embeddings')
     
     FLAGS = parser.parse_args()
-    main(**vars(FLAGS))
+    params = vars(FLAGS)
+    
+    if 'emb_size' in params:
+        params['embeddings'] = params['emb_size']
+        del params['emb_size']
+
+    if 'embeddings_path' in params:
+        if params['embeddings_path'] is not None:
+            params['embeddings'] = params['embeddings_path']
+        del params['embeddings_path']
+    
+    main(**params)

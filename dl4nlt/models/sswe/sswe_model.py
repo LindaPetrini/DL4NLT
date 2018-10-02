@@ -25,7 +25,7 @@ class SSWEModel(nn.Module):
         self.hidden_to_context = nn.Linear(n_hidden_units, 1)
         self.hidden_to_score = nn.Linear(n_hidden_units, 1)
 
-        self.init_weights()
+        # self.init_weights()
         
     def init_weights(self):
         # initrange = 0.5
