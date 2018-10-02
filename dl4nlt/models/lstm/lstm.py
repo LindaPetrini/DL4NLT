@@ -3,28 +3,49 @@ import torch.nn as nn
 from torch.nn import init
 import numpy as np
 
+def load_latest_sswe_embeddings(path):
+    """
+    loads the last sswe embedding layer saved
+    embeddings = load_latest_sswe_embeddings()
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(path, map_location=device)
+    vocab_len = checkpoint['state_dict']['embeddings.weight'].size()[0]
+    emb_size = checkpoint['state_dict']['embeddings.weight'].size()[1]
+    embedding_layer = torch.nn.Embedding(vocab_len, emb_size, padding_idx=0).to(device)
+    embedding_layer.weight.data = checkpoint['state_dict']['embeddings.weight']
+    return embedding_layer
+
 
 class CustomLSTM(nn.Module):
-    def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM',
-                 embeddings_path=None):
+    def __init__(self, vocab_len, embeddings, n_hidden_units, device, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM'):
         super(CustomLSTM, self).__init__()
         
         torch.manual_seed(42)
         
-        self.emb_size = emb_size
+        self.device = device
         self.rnn_type = rnn_type
         self.n_hidden_units = n_hidden_units
         self.n_hidden_layers = n_hidden_layers
         self.linear_size = 30
         self.output_size = n_output
+        self.blstm = False
         
         self.drop = nn.Dropout(dropout)
-        self.encoder = nn.Embedding(vocab_len, emb_size, padding_idx=0)
-        if rnn_type in ['LSTM', 'GRU', 'BLTSM']:
+
+        if isinstance(embeddings, str):
+            self.init_emb_from_file(embeddings)
+        elif embeddings is not None and isinstance(embeddings, int) and embeddings > 0:
+            self.encoder = nn.Embedding(vocab_len, embeddings, padding_idx=0)
+        else:
+            raise ValueError("ERROR! 'embeddings' parameter not valid: it should be either a positive integer or a path to the embeddings file")
+        
+        if rnn_type in ['LSTM', 'GRU', 'BLSTM']:
             is_bidirectional = True if rnn_type == 'BLSTM' else False
             if rnn_type is 'BLSTM':
+                self.blstm = True
                 rnn_type = 'LSTM'
-            self.rnn = getattr(nn, rnn_type)(emb_size, n_hidden_units, n_hidden_layers,
+            self.rnn = getattr(nn, rnn_type)(self.encoder.embedding_dim, n_hidden_units, n_hidden_layers,
                                              dropout=dropout,
                                              bidirectional=is_bidirectional,
                                              batch_first=False)  # Dropout added only for n_layers > 1
@@ -36,10 +57,12 @@ class CustomLSTM(nn.Module):
         self.decoder2 = nn.Linear(self.linear_size, n_output)
         self.sigmoid = nn.Sigmoid()
         
-        self.single_decoder = nn.Linear(n_hidden_units, n_output)
+        if self.blstm:
+            self.single_decoder = nn.Linear(n_hidden_units * 2, n_output)
+        else:
+            self.single_decoder = nn.Linear(n_hidden_units, n_output)
         
-        if embeddings_path is not None:
-            self.init_emb_from_file(embeddings_path)
+        
         
         # self.init_weights()
     
@@ -58,23 +81,28 @@ class CustomLSTM(nn.Module):
         else:
             return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(),)
 
-    def init_emb_from_file(self, path):
-        emb_mat = np.genfromtxt(path)
-        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+    def init_emb_from_file(self, path='dl4nlt/models/sswe/saved_models/latest.pth.tar'):
+        # emb_mat = np.genfromtxt(path)
+        # - infer the embedding directly from the file, without building the module beforehand
+        # self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+        self.encoder = load_latest_sswe_embeddings(path)
     
-    def forward(self, input, hidden, l):
+    def forward(self, input, l):
         
         emb = self.encoder(input)
         
-        # packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
-        # output, hidden = self.rnn(packed)
-        # unpacked, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
-
+        packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
+        output, _ = self.rnn(packed)
+        unpacked, pack_length = torch.nn.utils.rnn.pad_packed_sequence(output)
         
-        output, hidden = self.rnn(emb)
-        output = output[-1, :, :]  # Take last prediction from the sequence
-
-        # output = self.drop(unpacked[-1, :, :])  # Take last prediction from the sequence
+        if self.blstm:
+            idx = pack_length.view(1, -1, 1).expand(1, -1, 2 * self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
+        else:
+            idx = pack_length.view(1, -1, 1).expand(1, -1, self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
+        
+        output = torch.gather(unpacked, 0, idx).squeeze(0)
+        
+        output = self.drop(output)
         
         # output = self.decoder(output)
         # output = self.decoder2(self.relu(output))
@@ -82,8 +110,8 @@ class CustomLSTM(nn.Module):
         # print(emb.shape, unpacked.shape, output.shape)
         
         # output = self.sigmoid(output)
-        result = output.view(-1)
-        return result, hidden
+        
+        return output.view(-1)
 
 
 if __name__ == "__main__":
