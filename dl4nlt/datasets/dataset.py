@@ -5,6 +5,7 @@ import pandas as pd
 
 import os.path
 
+import torch
 from torch.utils.data.dataset import Dataset
 
 from dl4nlt.datasets.preprocessing import Preprocessing, Dictionary
@@ -26,12 +27,24 @@ norm_essay_set = {
     8: {'max': 30, 'min': 5}
 }
 
+norm_essay_set_tens = torch.tensor([[x['max'], x['min']] for k, x in sorted(norm_essay_set.items())])
+
+
 def normalize_row(r):
     return (r['y_original'] - norm_essay_set[r['essay_set']]['min']
             ) / (norm_essay_set[r['essay_set']]['max'] - norm_essay_set[r['essay_set']]['min'])
 
+
 def denormalize(essay_set, y):
     return (y + norm_essay_set[essay_set]['min']) * (norm_essay_set[essay_set]['max'] - norm_essay_set[essay_set]['min'])
+
+
+def denormalize_vec(essay_set: torch.LongTensor, y: torch.Tensor):
+    assert essay_set.shape == y.shape
+    assert essay_set.max().item() == 8
+    
+    essay_set = essay_set - 1
+    return (y + norm_essay_set_tens[essay_set, 1]) * (norm_essay_set_tens[essay_set, 0] - norm_essay_set_tens[essay_set, 1])
 
 
 class ASAP_Data(Dataset):
