@@ -63,12 +63,12 @@ class CustomLSTM(nn.Module):
         emb_mat = np.genfromtxt(path)
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
     
-    def forward(self, input, hidden, l):
+    def forward(self, input, l):
         
         emb = self.encoder(input)
         
         packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
-        output, hidden = self.rnn(packed)
+        output, _ = self.rnn(packed)
         unpacked, pack_length = torch.nn.utils.rnn.pad_packed_sequence(output)
         
         idx = pack_length.view(1, -1, 1).expand(1, -1, self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
@@ -83,7 +83,7 @@ class CustomLSTM(nn.Module):
         
         # output = self.sigmoid(output)
         
-        return output.view(-1), hidden
+        return output.view(-1)
 
 
 if __name__ == "__main__":

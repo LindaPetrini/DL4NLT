@@ -1,42 +1,43 @@
 import argparse
 import os.path
 import pickle
+import csv
+import time
 
 import torch
-
 from torch.utils.data import DataLoader
-
 from torch.nn import MSELoss
-
 from torch.optim import Adam
 from torch.optim import SGD
+
 import numpy as np
 
 from allennlp.modules.elmo import batch_to_ids
 
 from dl4nlt import ROOT
-
-OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
-DATASET_DIR = os.path.join(ROOT, "data/baseline")
-
-# from dl4nlt.dataloader import denormalize
+from dl4nlt.datasets import denormalize_vec
 # from dl4nlt.dataloader import norm_essay_set
 from dl4nlt.datasets import load_dataset
 from dl4nlt.models.lstm import CustomLSTM
-from dl4nlt.models.lstm import kappa
+from dl4nlt.models.lstm import *
 
 from tensorboardX import SummaryWriter
 from datetime import datetime
 
+from scipy.stats import spearmanr, pearsonr
+from sklearn.metrics import cohen_kappa_score
 
 ##### DEFAULT PARAMS #####
+
+OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_data")
+DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
 EXP_NAME = ''
 DROPOUT = 0.5
 RNN_TYPE = 'LSTM'
 BATCHSIZE = 128
 EPOCHS = 20
-LR = 4e-3
+LR = 0.0005
 VALIDATION_BATCHSIZE = 500
 
 
@@ -44,31 +45,23 @@ def create_collate(use_elmo=False):
     def collate(batch):
         batch = sorted(batch, key=lambda b: -1 * len(b.tokenized))
         lengths = list(map(lambda b: len(b.tokenized), batch))  # Needed for pack_padded in lstm
-
+        
         X = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(b.tokenized).reshape(-1) for b in batch])
-    
+        
         s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
-    
+        
         y = torch.tensor([b.y for b in batch]).reshape(-1)
-    
+        
         return X, s, y, lengths
-
-    # def elmo_collate(batch):
-    #     X = batch_to_ids([b.essay for b in batch])
-    #
-    #     s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
-    #
-    #     y = torch.tensor([b.y for b in batch]).reshape(-1)
-    #
-    #     return X, s, y, []
-    #
-    # if use_elmo:
-    #     return elmo_collate
-
+    
+    if use_elmo:
+        raise NotImplementedError
+    
     return collate
 
+
 def main(name, dataset, epochs, lr, batchsize, **kwargs):
-    def run_epoch(data, epoch, dataset, is_eval=False):
+    def run_epoch(data, epoch, is_eval=False):
         if is_eval:
             model.eval()
             data_len = valid_len
@@ -77,117 +70,137 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
             data_len = train_len
         
         loss = 0
-        cohen = 0
+        pearson = 0
+        spearman = 0
+        kappa = 0
+        
         for i_batch, batch in enumerate(data):
             x, s, t, l = batch
             x = x.to(device)
             t = t.to(device)
             
-            hiddens = model.init_hidden(x.shape[1])
             model.zero_grad()
             
-            y, h_ = model(x, hiddens, l)
+            y = model(x, l)
             this_loss = torch.sqrt(criterion(y, t))
             
-            # Stuff for Cohen, not working
-            # k = []
-            # for i in range(y.shape[0]):
-            #     y_denorm = int(round(denormalize(s[i].item(), y[i].item())))
-            #     t_denorm = int(round(denormalize(s[i].item(), t[i].item())))
-            #     max = norm_essay_set[s[i].item()]['max']
-            #     min = norm_essay_set[s[i].item()]['min']
-            #     k.append(kappa(y_denorm, t_denorm, min_rating=min, max_rating=max))
-            # this_cohen = sum(k) / len(k)
-            
-            # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
-            
-            # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens], this_loss.item())
-            # if not is_eval:
-            #     print('\t', i_batch)
-            #     print('\t\t', y.data.cpu().detach().numpy().reshape(-1))
-            #     print('\t\t', t.data.cpu().detach().numpy().reshape(-1))
-            # print('\t\t', y.view(-1).mean().item(), y.view(-1).std().item())
-            # print('\t\t', t.view(-1).mean().item(), t.view(-1).std().item())
             if not is_eval:
                 this_loss.backward()
                 optimizer.step()
                 writer.add_scalar('Iteration training loss', this_loss.item(), epoch * len(data) + i_batch)
             
+            y_denorm = denormalize_vec(s, y.detach(), device)
+            t_long = t.detach().type(torch.LongTensor).to(device)
+            this_kappa = cohen_kappa_score(t_long, y_denorm, weights="quadratic")
+            this_pearson, p_value = pearsonr(t.detach(), y.detach())
+            this_spearman, p_value = spearmanr(t.detach(), y.detach())
+            
+            if not is_eval:
+                writer.add_scalar('Iteration training pearson', this_pearson, epoch * len(data) + i_batch)
+                writer.add_scalar('Iteration training spearman', this_spearman, epoch * len(data) + i_batch)
+                writer.add_scalar('Iteration training kappa', this_kappa, epoch * len(data) + i_batch)
+            
             # Weight scores depending on batch size (last batch is smaller)
             loss += this_loss.item() * x.shape[1]
-            # cohen += this_cohen * x.shape[1]
-
+            pearson += this_pearson * x.shape[1]
+            spearman += this_spearman * x.shape[1]
+            kappa += this_kappa * x.shape[1]
+        
         # Average over the size of the train/valid data
         loss /= data_len
-        cohen /= data_len
-        return loss, 0  # TODO cohen
+        pearson /= data_len
+        spearman /= data_len
+        kappa /= data_len
+        return loss, pearson, spearman, kappa
     
     ##############################################
     ## Data, Model and Optimizer initialization ##
     ##############################################
     
-    outfile = os.path.join(OUTPUT_DIR, name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    exp_name = 'runs/{} embeddingsFrom_{} dropout_{} batchsize_{} {}'.format(kwargs['rnn_type'] + EXP_NAME,
-                                                                             kwargs['embeddings_path'],
-                                                                             kwargs['dropout'], batchsize,
-                                                                             datetime.now().strftime("%Y-%m-%d %H:%M"))
+    exp_name = '{} embeddingsFrom_{} dropout_{} lr_{} batchsize_{} {}'.format(kwargs['rnn_type'] + name,
+                                                                              kwargs['embeddings_path'],
+                                                                              kwargs['dropout'], lr,
+                                                                              batchsize,
+                                                                              datetime.now().strftime(
+                                                                                  "%Y-%m-%d %H:%M"))
     print(exp_name)
+    outfile = os.path.join(OUTPUT_DIR, exp_name)
+    outfile_metrics = os.path.join(outfile, "metrics.pickle")
+    outfile_metrics_valid = os.path.join(outfile, "metrics_valid.csv")
+    outfile_metrics_train = os.path.join(outfile, "metrics_train.csv")
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+    os.makedirs(outfile)
     
-    writer = SummaryWriter(exp_name)
+    writer = SummaryWriter("runs/" + exp_name)
     
     training_set, validation_set, _ = load_dataset(dataset)
     train_len, valid_len = len(training_set), len(validation_set)
     vocab_len = len(training_set.dict)
+    training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True,
+                          collate_fn=create_collate())
+    validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
+                            collate_fn=create_collate())
     
     model = CustomLSTM(vocab_len=vocab_len, device=device, **kwargs)
     model.to(device)
     print(model)
     
-    training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True, collate_fn=create_collate())
-    validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
-                            collate_fn=create_collate())
-    
     criterion = MSELoss()
     optimizer = Adam(model.parameters(), lr)
     # optimizer = SGD(model.parameters(), lr)
     
+    ####################################
+    ############# TRAINING #############
+    ####################################
+    start_time = time.time()
+    
     print('\n###############################################')
     print('Starting epoch 0 (Random Guessing)')
-    loss, cohen = run_epoch(validation, 0, validation_set, is_eval=True)
-    print('| Valid Loss: {} |  cohen: {} |\n'.format(loss, cohen))
-
-    train_losses = []
-    valid_losses = []
-    train_cohen = []
-    valid_cohen = []
+    loss, pearson, spearman, kappa = run_epoch(validation, 0, is_eval=True)
+    print('| Valid Loss: {} |  Pearson: {} |  Spearman: {} |  Kappa: {} |\n'.format(loss, pearson, spearman, kappa))
     
-
+    metrics = {
+        "train": {
+            "rmse": [],
+            "pearson": [],
+            "spearman": [],
+            "kappa": [],
+        },
+        "valid": {
+            "rmse": [],
+            "pearson": [],
+            "spearman": [],
+            "kappa": [],
+        }
+    }
+    
     for e in range(epochs):
-        
         print('###############################################')
         print('Starting epoch {}'.format(e + 1))
         
-        loss, cohen = run_epoch(training, e, training_set, is_eval=False)
-        train_losses.append(loss)
-        train_cohen.append(cohen)
-        print('| Train Loss: {} |  cohen: {} |'.format(loss, cohen))
-        writer.add_scalar('Epoch training loss', loss, e + 1)
+        loss, pearson, spearman, kappa = run_epoch(training, e, is_eval=False)
+        print('| Train Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
+            loss, pearson, spearman, kappa))
+        metrics["train"] = update_metrics(metrics["train"], loss, pearson, spearman, kappa)
+        update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=False)
+        update_csv(outfile_metrics_train, e, loss, pearson, spearman, kappa)
         
-        loss, cohen = run_epoch(validation, e, validation_set, is_eval=True)
-        valid_losses.append(loss)
-        valid_cohen.append(cohen)
-        print('| Valid Loss: {} |  cohen: {} |'.format(loss, cohen))
-        writer.add_scalar('Epoch validation loss', loss, e + 1)
+        loss, pearson, spearman, kappa = run_epoch(validation, e, is_eval=True)
+        print('| Valid Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
+            loss, pearson, spearman, kappa))
+        metrics["valid"] = update_metrics(metrics["valid"], loss, pearson, spearman, kappa)
+        update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=True)
+        update_csv(outfile_metrics_valid, e, loss, pearson, spearman, kappa)
         
-        # Save best model so far
-        if not len(train_cohen) == 0 and cohen < min(train_cohen):
-            with open(outfile, 'wb') as of:
-                pickle.dump(model, of)
-            print('|\tBest validation accuracy: Model Saved!')
+        update_saved_model(metrics, model, optimizer, e, outfile)
+        update_metrics_pickle(metrics, outfile_metrics)
         
         print()
+    
+    print("Finished training in {:.1f} minutes ".format((time.time() - start_time) / 60))
 
 
 if __name__ == '__main__':
