@@ -67,6 +67,7 @@ def create_collate(use_elmo=False):
 
     return collate
 
+
 def main(name, dataset, epochs, lr, batchsize, **kwargs):
     def run_epoch(data, epoch, dataset, is_eval=False):
         if is_eval:
@@ -127,15 +128,11 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     ##############################################
     
     outfile = os.path.join(OUTPUT_DIR, name)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
-    exp_name = 'runs/{} embeddingsFrom_{} dropout_{} batchsize_{} {}'.format(kwargs['rnn_type'] + EXP_NAME,
-                                                                             kwargs['embeddings'],
-                                                                             kwargs['dropout'], batchsize,
-                                                                             datetime.now().strftime("%Y-%m-%d %H:%M"))
-    print(exp_name)
     
-    writer = SummaryWriter(exp_name)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # print(device)
+    
+    writer = SummaryWriter(name)
     
     training_set, validation_set, _ = load_dataset(dataset)
     train_len, valid_len = len(training_set), len(validation_set)
@@ -143,7 +140,6 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     
     model = CustomLSTM(vocab_len=vocab_len, device=device, **kwargs)
     model.to(device)
-    print(model)
     
     training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True, collate_fn=create_collate())
     validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
@@ -162,7 +158,6 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     valid_losses = []
     train_cohen = []
     valid_cohen = []
-    
 
     for e in range(epochs):
         
