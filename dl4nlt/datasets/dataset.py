@@ -50,7 +50,7 @@ def denormalize_vec(essay_set, y, device):
     essay_set = essay_set - 1
     a = norm_essay_set_tens_device[essay_set, 1]
     b = norm_essay_set_tens_device[essay_set, 0]
-    return ((y + a) * (b - a)).round().type(torch.LongTensor).to(device)
+    return (a + y * (b - a)).round().type(torch.LongTensor).to(device)
 
 
 class ASAP_Data(Dataset):
