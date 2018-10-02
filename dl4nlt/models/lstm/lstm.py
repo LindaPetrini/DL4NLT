@@ -5,12 +5,13 @@ import numpy as np
 
 
 class CustomLSTM(nn.Module):
-    def __init__(self, vocab_len, emb_size, n_hidden_units, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM',
+    def __init__(self, vocab_len, emb_size, n_hidden_units, device, n_hidden_layers=1, n_output=1, dropout=0.5, rnn_type='LSTM',
                  embeddings_path=None):
         super(CustomLSTM, self).__init__()
         
         torch.manual_seed(42)
         
+        self.device = device
         self.emb_size = emb_size
         self.rnn_type = rnn_type
         self.n_hidden_units = n_hidden_units
@@ -66,15 +67,14 @@ class CustomLSTM(nn.Module):
         
         emb = self.encoder(input)
         
-        # packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
-        # output, hidden = self.rnn(packed)
-        # unpacked, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
-
+        packed = torch.nn.utils.rnn.pack_padded_sequence(emb, l)
+        output, hidden = self.rnn(packed)
+        unpacked, pack_length = torch.nn.utils.rnn.pad_packed_sequence(output)
         
-        output, hidden = self.rnn(emb)
-        output = output[-1, :, :]  # Take last prediction from the sequence
-
-        # output = self.drop(unpacked[-1, :, :])  # Take last prediction from the sequence
+        idx = pack_length.view(1, -1, 1).expand(1, -1, self.n_hidden_units).to(dtype=torch.long).to(self.device) - 1
+        output = torch.gather(unpacked, 0, idx).squeeze(0)
+        
+        output = self.drop(output)
         
         # output = self.decoder(output)
         # output = self.decoder2(self.relu(output))
@@ -82,8 +82,8 @@ class CustomLSTM(nn.Module):
         # print(emb.shape, unpacked.shape, output.shape)
         
         # output = self.sigmoid(output)
-        result = output.view(-1)
-        return result, hidden
+        
+        return output.view(-1), hidden
 
 
 if __name__ == "__main__":

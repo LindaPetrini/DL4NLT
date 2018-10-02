@@ -29,11 +29,11 @@ from datetime import datetime
 
 ##### DEFAULT PARAMS #####
 
-EXP_NAME = 'exp.model'
-DROPOUT = 0.3
+EXP_NAME = ''
+DROPOUT = 0.5
 RNN_TYPE = 'LSTM'
 BATCHSIZE = 128
-EPOCHS = 10
+EPOCHS = 20
 LR = 4e-3
 VALIDATION_BATCHSIZE = 500
 
@@ -113,7 +113,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     outfile = os.path.join(OUTPUT_DIR, name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    exp_name = 'runs/{} embeddingsFrom_{} dropout_{} batchsize_{} {}'.format(kwargs['rnn_type'],
+    exp_name = 'runs/{} embeddingsFrom_{} dropout_{} batchsize_{} {}'.format(kwargs['rnn_type'] + EXP_NAME,
                                                                              kwargs['embeddings_path'],
                                                                              kwargs['dropout'], batchsize,
                                                                              datetime.now().strftime("%Y-%m-%d %H:%M"))
@@ -125,7 +125,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     train_len, valid_len = len(training_set), len(validation_set)
     vocab_len = len(training_set.dict)
     
-    model = CustomLSTM(vocab_len=vocab_len, **kwargs)
+    model = CustomLSTM(vocab_len=vocab_len, device=device, **kwargs)
     model.to(device)
     print(model)
     
@@ -157,13 +157,13 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
         train_losses.append(loss)
         train_cohen.append(cohen)
         print('| Train Loss: {} |  cohen: {} |'.format(loss, cohen))
-        writer.add_scalar('Epoch training loss', loss, e)
+        writer.add_scalar('Epoch training loss', loss, e + 1)
         
         loss, cohen = run_epoch(validation, e, validation_set, is_eval=True)
         valid_losses.append(loss)
         valid_cohen.append(cohen)
         print('| Valid Loss: {} |  cohen: {} |'.format(loss, cohen))
-        writer.add_scalar('Epoch validation loss', loss, e)
+        writer.add_scalar('Epoch validation loss', loss, e + 1)
         
         # Save best model so far
         if not len(train_cohen) == 0 and cohen < min(train_cohen):
