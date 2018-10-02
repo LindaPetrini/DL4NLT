@@ -7,7 +7,7 @@ import os.path
 
 from torch.utils.data.dataset import Dataset
 
-from .preprocessing import Preprocessing, Dictionary
+from dl4nlt.datasets.preprocessing import Preprocessing, Dictionary
 import time
 
 from dl4nlt import ROOT
@@ -36,7 +36,8 @@ def denormalize(essay_set, y):
 
 class ASAP_Data(Dataset):
     def __init__(self, essay_set, folder_dataset=DATA_FOLDER,
-                 train=True, valid=False, test=False, dictionary=None, global_misspelled_token=False):
+                 train=True, valid=False, test=False, dictionary=None, global_misspelled_token=False,
+                 elmo_formatting=False):
         """
         essay_set: set of ints, that could be from 1-8 indicating the essay set to be selected
         folder_dataset: folder name where dataset is stored
@@ -80,11 +81,12 @@ class ASAP_Data(Dataset):
         # add preprocessing here to store numbers vectors instead of essays
         self.data = data[['essay', 'y', 'essay_set', 'y_original']].reset_index(drop=True)
 
-        self.dict = dictionary
-        self.preprocess_essays(global_misspelled_token)
+        if not elmo_formatting:
+            self.dict = dictionary
+            self.preprocess_essays(global_misspelled_token)
 
-        self.data.loc[:, 'tokenized'] = self.data.essay.apply(lambda e: [self.dict.word2idx.get(w, 1) for w in e])
-    
+            self.data.loc[:, 'tokenized'] = self.data.essay.apply(lambda e: [self.dict.word2idx.get(w, 1) for w in e])
+
     # Override to give PyTorch access to any item on the dataset
     def __getitem__(self, index):
         return self.data.iloc[index]

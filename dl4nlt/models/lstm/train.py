@@ -12,6 +12,8 @@ from torch.optim import Adam
 from torch.optim import SGD
 import numpy as np
 
+from allennlp.modules.elmo import batch_to_ids
+
 from dl4nlt import ROOT
 
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_models")
@@ -38,18 +40,32 @@ LR = 4e-3
 VALIDATION_BATCHSIZE = 500
 
 
-def collate(batch):
-    batch = sorted(batch, key=lambda b: -1 * len(b.tokenized))
-    lengths = list(map(lambda b: len(b.tokenized), batch))  # Needed for pack_padded in lstm
-    
-    X = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(b.tokenized).reshape(-1) for b in batch])
-    
-    s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
-    
-    y = torch.tensor([b.y for b in batch]).reshape(-1)
-    
-    return X, s, y, lengths
+def create_collate(use_elmo=False):
+    def collate(batch):
+        batch = sorted(batch, key=lambda b: -1 * len(b.tokenized))
+        lengths = list(map(lambda b: len(b.tokenized), batch))  # Needed for pack_padded in lstm
 
+        X = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(b.tokenized).reshape(-1) for b in batch])
+    
+        s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
+    
+        y = torch.tensor([b.y for b in batch]).reshape(-1)
+    
+        return X, s, y, lengths
+
+    def elmo_collate(batch):
+        X = batch_to_ids([b.essay for b in batch])
+
+        s = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
+
+        y = torch.tensor([b.y for b in batch]).reshape(-1)
+
+        return X, s, y, []
+
+    if use_elmo:
+        return elmo_collate
+
+    return collate
 
 def main(name, dataset, epochs, lr, batchsize, **kwargs):
     def run_epoch(data, epoch, dataset, is_eval=False):
@@ -100,7 +116,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
             # Weight scores depending on batch size (last batch is smaller)
             loss += this_loss.item() * x.shape[1]
             # cohen += this_cohen * x.shape[1]
-        
+
         # Average over the size of the train/valid data
         loss /= data_len
         cohen /= data_len
@@ -129,9 +145,9 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
     model.to(device)
     print(model)
     
-    training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True, collate_fn=collate)
+    training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True, collate_fn=create_collate())
     validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
-                            collate_fn=collate)
+                            collate_fn=create_collate())
     
     criterion = MSELoss()
     optimizer = Adam(model.parameters(), lr)
