@@ -16,3 +16,4 @@ symspellpy
 pandas
 allennlp
 wget
+bcolz
