@@ -16,13 +16,27 @@ DATASET_DIR = os.path.join(ROOT, "data/baseline")
 # TODO set this path
 EMB_FILE = os.path.join(ROOT, "models/sswe/saved_models", 'embedding')
 
+# params = {
+#     'rnn_type': ['LSTM', 'BLTSM'],
+#     'embeddings': [200, EMB_FILE],
+#     'lr': [1e-2, 1e-3, 1e-4],
+#     'n_hidden_units': [10, 64, 128],
+#     'dropout': [0.3, 0.5],
+#     'n_hidden_layers': [1], #[1, 2],
+# }
+
+
 params = {
-    'rnn_type': ['LSTM', 'BLTSM'],
-    'embeddings': [200, EMB_FILE],
-    'lr': [1e-2, 1e-3, 1e-4],
-    'n_hidden_units': [10, 64, 128],
-    'dropout': [0.3, 0.5],
-    'n_hidden_layers': [1], #[1, 2],
+    # 'name': 'exp.model',
+    'dataset': [DATASET_DIR],
+    'epochs': [20],
+    'lr': [0.0005],
+    'batchsize': [128],
+    'n_hidden_units': [100],
+    'n_hidden_layers': [1],
+    'dropout': [0.5],
+    'rnn_type': ['LSTM'],
+    'embeddings': [200],
 }
 
 experiments_keys = list(params.keys())

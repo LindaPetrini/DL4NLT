@@ -73,6 +73,9 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
         pearson = 0
         spearman = 0
         kappa = 0
+        aloss = 0
+        apearson = 0
+        aspearman = 0
         
         for i_batch, batch in enumerate(data):
             x, s, t, l = batch
@@ -90,8 +93,8 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
                 writer.add_scalar('Iteration training loss', this_loss.item(), epoch * len(data) + i_batch)
             
             y_denorm = denormalize_vec(s, y.detach(), device)
-            t_long = t.detach().type(torch.LongTensor).to(device)
-            this_kappa = cohen_kappa_score(t_long, y_denorm, weights="quadratic")
+            t_denorm = denormalize_vec(s, t.detach(), device)
+            this_kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(1, 30)), weights="quadratic")
             this_pearson, p_value = pearsonr(t.detach(), y.detach())
             this_spearman, p_value = spearmanr(t.detach(), y.detach())
             
@@ -105,13 +108,24 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
             pearson += this_pearson * x.shape[1]
             spearman += this_spearman * x.shape[1]
             kappa += this_kappa * x.shape[1]
+            
+            aloss += x.shape[1] * torch.sqrt(
+                criterion(y_denorm.type(torch.FloatTensor).to(device), t_denorm.type(torch.FloatTensor).to(device)))
+            apearson = x.shape[1] * pearsonr(t_denorm.type(torch.FloatTensor).to(device),
+                                             y_denorm.type(torch.FloatTensor).to(device))[0]
+            aspearman = x.shape[1] * spearmanr(t_denorm.type(torch.FloatTensor).to(device),
+                                               y_denorm.type(torch.FloatTensor).to(device))[0]
         
         # Average over the size of the train/valid data
         loss /= data_len
         pearson /= data_len
         spearman /= data_len
         kappa /= data_len
-        return loss, pearson, spearman, kappa
+        aloss /= data_len
+        apearson /= data_len
+        aspearman /= data_len
+        
+        return loss, pearson, spearman, kappa, aloss, apearson, aspearman
     
     ##############################################
     ## Data, Model and Optimizer initialization ##
@@ -153,8 +167,9 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     
     print('\n###############################################')
     print('Starting epoch 0 (Random Guessing)')
-    loss, pearson, spearman, kappa = run_epoch(validation, 0, is_eval=True)
-    print('| Valid Loss: {} |  Pearson: {} |  Spearman: {} |  Kappa: {} |\n'.format(loss, pearson, spearman, kappa))
+    loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(validation, 0, is_eval=True)
+    print('| Valid Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |\n'.format(loss, pearson, spearman, kappa))
+    print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
     
     metrics = {
         "train": {
@@ -175,16 +190,18 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
         print('###############################################')
         print('Starting epoch {}'.format(e + 1))
         
-        loss, pearson, spearman, kappa = run_epoch(training, e, is_eval=False)
+        loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(training, e, is_eval=False)
         print('| Train Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
             loss, pearson, spearman, kappa))
+        print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
         metrics["train"] = update_metrics(metrics["train"], loss, pearson, spearman, kappa)
         update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=False)
         update_csv(outfile_metrics_train, e, loss, pearson, spearman, kappa)
         
-        loss, pearson, spearman, kappa = run_epoch(validation, e, is_eval=True)
+        loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(validation, e, is_eval=True)
         print('| Valid Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
             loss, pearson, spearman, kappa))
+        print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
         metrics["valid"] = update_metrics(metrics["valid"], loss, pearson, spearman, kappa)
         update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=True)
         update_csv(outfile_metrics_valid, e, loss, pearson, spearman, kappa)
@@ -232,7 +249,7 @@ if __name__ == '__main__':
     if 'emb_size' in params:
         params['embeddings'] = params['emb_size']
         del params['emb_size']
-
+    
     if 'embeddings_path' in params:
         if params['embeddings_path'] is not None:
             params['embeddings'] = params['embeddings_path']
