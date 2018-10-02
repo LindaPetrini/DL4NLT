@@ -37,7 +37,7 @@ RNN_TYPE = 'LSTM'
 BATCHSIZE = 128
 EPOCHS = 10
 LR = 4e-3
-VALIDATION_BATCHSIZE = 1000
+VALIDATION_BATCHSIZE = 500
 
 
 def create_collate(use_elmo=False):
@@ -86,7 +86,7 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
             hiddens = model.init_hidden(x.shape[1])
             model.zero_grad()
             
-            y = model(x, hiddens, l)[0]
+            y, h_ = model(x, hiddens, l)
             this_loss = torch.sqrt(criterion(y, t))
             
             # Stuff for Cohen, not working
@@ -100,6 +100,14 @@ def main(name, dataset, epochs, lr, batchsize, **kwargs):
             # this_cohen = sum(k) / len(k)
             
             # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens])
+            
+            # print('\t', i_batch, x.shape, t.shape, y.shape, [h.shape for h in hiddens], this_loss.item())
+            # if not is_eval:
+            #     print('\t', i_batch)
+            #     print('\t\t', y.data.cpu().detach().numpy().reshape(-1))
+            #     print('\t\t', t.data.cpu().detach().numpy().reshape(-1))
+            # print('\t\t', y.view(-1).mean().item(), y.view(-1).std().item())
+            # print('\t\t', t.view(-1).mean().item(), t.view(-1).std().item())
             if not is_eval:
                 this_loss.backward()
                 optimizer.step()
