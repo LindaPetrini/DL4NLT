@@ -13,7 +13,7 @@ from torch.optim import SGD
 
 from dl4nlt import ROOT
 OUTPUT_DIR = os.path.join(ROOT, "models/sswe/saved_models")
-DATASET_DIR = os.path.join(ROOT, "data/baseline")
+DATASET_DIR = os.path.join(ROOT, "data/")
 
 from dl4nlt.datasets import load_dataset
 from dl4nlt.models.sswe import SSWEModel
@@ -36,20 +36,22 @@ def save_model_checkpoint(state, filename):
     """
     saves a model to filename - in folder called saved_models
     """
-    filename = os.path.join('dl4nlt/models/sswe/saved_models', filename)
     torch.save(state, filename)
 
 
-def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwargs):
+def main(dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwargs):
     
     assert 0. <= alpha <= 1.
     assert error_rate > 0 and isinstance(error_rate, int)
     assert context_size > 1 and isinstance(context_size, int)
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    outfile = os.path.join(OUTPUT_DIR, name)
     
-    training, _, _ = load_dataset(dataset)
+    outdir = os.path.join(OUTPUT_DIR, dataset)
+    
+    os.makedirs(outdir, exist_ok=True)
+
+    outfile = os.path.join(outdir, 'latest.pth.tar')
+    
+    training, _, _ = load_dataset(os.path.join(DATASET_DIR, dataset))
     
     training = ContextDateset(training, context_size)
     
@@ -134,11 +136,11 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
         train_losses.append(train_loss)
     
         print('| Training loss: {} |'.format(train_loss))
-
+        
         print("Saving Model checkpoint")
         save_model_checkpoint({                
                 'state_dict': model.state_dict(),              
-            } , 'latest.pth.tar')
+            } , outfile)
             
         print('|\tModel Saved!')
 
@@ -150,10 +152,10 @@ def main(name, dataset, epochs, lr, batchsize, context_size, error_rate, alpha, 
 if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, default='exp.model',
-                        help='Name of the experiment (used for output file name)')
-    parser.add_argument('--dataset', type=str, default=DATASET_DIR,
-                        help='Path to the folder containg the dataset')
+    # parser.add_argument('--name', type=str, default='exp.model',
+    #                     help='Name of the experiment (used for output file name)')
+    parser.add_argument('--dataset', type=str, default='global_mispelled',
+                        help='Name of the dataset to use')
     parser.add_argument('--epochs', type=int, default=EPOCHS,
                         help='Number of epochs for training')
     parser.add_argument('--lr', type=float, default=LR,

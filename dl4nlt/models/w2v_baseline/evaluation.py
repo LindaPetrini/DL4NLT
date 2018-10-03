@@ -63,7 +63,7 @@ denorm_rmse_train = np.sqrt(np.mean((trainset.data['y_original'] - denorm_train_
 
 print('RMSE on denormalized trainingset: ', denorm_rmse_train)
 
-denorm_c_kappa_train = cohen_kappa_score((2*trainset.data['y_original']).round().astype(int), (2*denorm_train_pred).round().astype(int), weights="quadratic")
+denorm_c_kappa_train = cohen_kappa_score(trainset.data['y_original'], denorm_train_pred, weights="quadratic")
 print('Kappa on trainingset: ', denorm_c_kappa_train)
 
 denorm_spearman_train = spearmanr(trainset.data['y_original'], denorm_train_pred)
@@ -97,7 +97,7 @@ denorm_rmse_test = np.sqrt(np.mean((testset.data['y_original'] - denorm_test_pre
 
 print('RMSE on denormalized testset:', denorm_rmse_test)
 
-denorm_c_kappa_test = cohen_kappa_score((2*testset.data['y_original']).round().astype(int), (2*denorm_test_pred).round().astype(int), weights="quadratic")
+denorm_c_kappa_test = cohen_kappa_score(testset.data['y_original'], denorm_test_pred, weights="quadratic")
 
 print('Kappa on denormalized test set: ', denorm_c_kappa_test)
 

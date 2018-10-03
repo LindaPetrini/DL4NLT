@@ -34,4 +34,4 @@ def get_dataset(name, global_misspelled_token=False, elmo_formatting=False):
 if __name__ == '__main__':
     get_dataset('local_mispelled', global_misspelled_token=False)
     get_dataset('global_mispelled', global_misspelled_token=True)
-    # get_dataset('elmo', elmo_formatting=True)
+    get_dataset('elmo', elmo_formatting=True)

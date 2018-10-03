@@ -30,7 +30,7 @@ from sklearn.metrics import cohen_kappa_score
 ##### DEFAULT PARAMS #####
 
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_data")
-DATASET_DIR = os.path.join(ROOT, "data/baseline")
+DATASET_DIR = os.path.join(ROOT, "data")
 
 EXP_NAME = 'Glove300D'
 DROPOUT = 0.5
@@ -132,7 +132,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     ## Data, Model and Optimizer initialization ##
     ##############################################
 
-    outdir = os.path.join(OUTPUT_DIR, name)
+    outdir = os.path.join(OUTPUT_DIR, dataset, name)
 
     print('Outdir:', outdir)
 
@@ -146,7 +146,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
 
     writer = SummaryWriter(os.path.join('runs', name))
 
-    training_set, validation_set, _ = load_dataset(dataset)
+    training_set, validation_set, _ = load_dataset(os.path.join(DATASET_DIR, dataset))
     train_len, valid_len = len(training_set), len(validation_set)
     vocab_len = len(training_set.dict)
     training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True,
@@ -222,8 +222,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default=EXP_NAME,
                         help='Name of the experiment (used for output file name)')
-    parser.add_argument('--dataset', type=str, default=DATASET_DIR,
-                        help='Path to the folder containg the dataset')
+    parser.add_argument('--dataset', type=str, default='local_mispelled',
+                        help='Name of the dataset to use')
     parser.add_argument('--epochs', type=int, default=EPOCHS,
                         help='Number of epochs for training')
     parser.add_argument('--lr', type=float, default=LR,
