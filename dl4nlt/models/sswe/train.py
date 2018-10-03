@@ -13,6 +13,8 @@ from torch.optim import SGD
 
 from dl4nlt import ROOT
 OUTPUT_DIR = os.path.join(ROOT, "models/sswe/saved_models")
+OUTFILE_NAME = 'latest.pth.tar'
+
 DATASET_DIR = os.path.join(ROOT, "data/")
 
 from dl4nlt.datasets import load_dataset
@@ -49,7 +51,7 @@ def main(dataset, epochs, lr, batchsize, context_size, error_rate, alpha, **kwar
     
     os.makedirs(outdir, exist_ok=True)
 
-    outfile = os.path.join(outdir, 'latest.pth.tar')
+    outfile = os.path.join(outdir, OUTFILE_NAME)
     
     training, _, _ = load_dataset(os.path.join(DATASET_DIR, dataset))
     

@@ -27,6 +27,9 @@ from datetime import datetime
 from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import cohen_kappa_score
 
+from dl4nlt.models.sswe.train import OUTPUT_DIR as SSWE_DIR
+from dl4nlt.models.sswe.train import OUTFILE_NAME as SSWE_FILE
+
 ##### DEFAULT PARAMS #####
 
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_data")
@@ -143,7 +146,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     outfile_metrics_train = os.path.join(outdir, "metrics_train.csv")
 
     os.makedirs(outdir, exist_ok=True)
-
+    
     writer = SummaryWriter(os.path.join('runs', dataset, name))
 
     training_set, validation_set, _ = load_dataset(os.path.join(DATASET_DIR, dataset))
@@ -153,7 +156,10 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
                           collate_fn=create_collate())
     validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
                             collate_fn=create_collate())
-
+    
+    if kwargs['embeddings'] == 'sswe':
+        kwargs['embeddings'] = os.path.join(SSWE_DIR, dataset, SSWE_FILE)
+    
     model = CustomLSTM(vocab_len=vocab_len, device=device, target_vocab_to_idx=training_set.dict.word2idx,  **kwargs)
     model.to(device)
 
