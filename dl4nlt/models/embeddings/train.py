@@ -21,18 +21,16 @@ from dl4nlt.models.embeddings.embedding_gru import EmbeddingGRU
 VALIDATION_BATCHSIZE = 500
 
 
-
 def elmo_collate(batch):
-    sorted_batch = sorted(batch, key=lambda b: -1 * len(b.essay))
-
+    sorted_batch = sorted(batch, key=lambda b: -1 * len(b.elmo_tokenized))
+    
     essays = list(map(lambda b: b.elmo_tokenized, sorted_batch))
-
+    
     essay_sets = torch.LongTensor([b.essay_set for b in sorted_batch]).reshape(-1)
 
     lengths = list(map(lambda b: len(b.elmo_tokenized), sorted_batch))
 
-    targets = torch.LongTensor([b.y for b in sorted_batch]).reshape(-1)
-    print([b.y_original for b in sorted_batch])
+    targets = torch.FloatTensor([b.y for b in sorted_batch]).reshape(-1)
 
     return essays, lengths, essay_sets, targets
 
@@ -48,7 +46,7 @@ def train(config):
     training_data, validation_data, _ = load_dataset(config.dataset)
 
     training_dataloader = DataLoader(training_data, batch_size=config.batch_size,
-                                     shuffle=True, pin_memory=True, collate_fn=elmo_collate)
+                                     shuffle=True, collate_fn=elmo_collate)
 
     # validation_dataloader = DataLoader(validation_data, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
     #                         collate_fn=elmo_collate)
@@ -61,10 +59,13 @@ def train(config):
         n_layers=config.num_rnn_layers,
         dropout=0.1,
         device=config.device,
-        elmo=True,
     )
-
+    
+    os.makedirs(os.path.join(os.path.dirname(__file__), "runs"), exist_ok=True)
+    
     writer = tensorboardX.SummaryWriter(os.path.join(os.path.dirname(__file__), f"runs/ELMORUN{time.time()}"))
+    
+    
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
@@ -78,14 +79,14 @@ def train(config):
         loss, denorm_loss, \
         pearson, denorm_pearson, \
         spearman, denorm_spearman, \
-        kappa = run_epoch(config, criterion, e, model, optimizer, training_data, training_dataloader, writer)
+        kappa = run_epoch(config, criterion, e, model, optimizer, training_dataloader, writer)
         print(f"Epoch loss {epoch_loss}")
         print(f"Epoch kappa {epoch_kappa}")
 
         # val_loss, val_denorm_loss, \
         # val_pearson, val_denorm_pearson, \
         # val_spearman, val_denorm_spearman, \
-        # val_kappa = run_epoch(config, criterion, e, model, optimizer, validation_data, validation_dataloader, writer, is_training=False)
+        # val_kappa = run_epoch(config, criterion, e, model, optimizer, validation_dataloader, writer, is_training=False)
 
 
 def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_training=True):
@@ -101,6 +102,7 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
         optimizer.zero_grad()
 
         batch_input, lengths, essay_sets, targets = batch
+        
         targets = targets.float().to(config.device)
         
         outputs, hidden = model(batch_input, lengths)
@@ -115,7 +117,7 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
         y_denorm = denormalize_vec(essay_sets, outputs.detach(), config.device)
         t_denorm = denormalize_vec(essay_sets, targets.detach(), config.device)
         print(essay_sets)
-        print(targets)
+        print(outputs.detach().tolist(), targets)
         print(y_denorm, t_denorm)
         kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(0, 30)), weights="quadratic")
         pearson, p_value = pearsonr(targets.detach(), outputs.detach())
@@ -129,11 +131,11 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
         print(f"Batch loss {float(loss.item())}")
         print(f"Cohen kappa {kappa}")
 
-        all_predictions_denorm += y_denorm.to_list()
-        all_targets_denorm += t_denorm.to_list()
+        all_predictions_denorm += y_denorm.tolist()
+        all_targets_denorm += t_denorm.tolist()
 
-        all_predictions += outputs.to_list()
-        all_targets += targets.to_list()
+        all_predictions += outputs.tolist()
+        all_targets += targets.tolist()
     
     epoch_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions), torch.FloatTensor(all_targets))).item()
     epoch_denorm_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions_denorm), torch.FloatTensor(all_targets_denorm))).item()
