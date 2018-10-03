@@ -44,7 +44,7 @@ class EmbeddingGRU(nn.Module):
         outputs = torch.gather(outputs, 0, idx).squeeze(0)
 
         outputs = self.linear(outputs)
-        return outputs.squeeze(), hidden
+        return torch.sigmoid(outputs.squeeze()), hidden
 
     @staticmethod
     def elmo_to_torch(elmo_embedding):
