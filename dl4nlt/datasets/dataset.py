@@ -99,11 +99,12 @@ class ASAP_Data(Dataset):
 
         # add preprocessing here to store numbers vectors instead of essays
         self.data = data[['essay', 'y', 'essay_set', 'y_original']].reset_index(drop=True)
-
-        if not elmo_formatting:
-            self.dict = dictionary
+        self.dict = dictionary
+        
+        if elmo_formatting:
+            self.data.loc[:, 'elmo_tokenized'] = self.data.essay.apply(lambda e: e.split())
+        else:
             self.preprocess_essays(global_misspelled_token)
-
             self.data.loc[:, 'tokenized'] = self.data.essay.apply(lambda e: [self.dict.word2idx.get(w, 1) for w in e])
 
     # Override to give PyTorch access to any item on the dataset

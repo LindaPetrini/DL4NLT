@@ -7,37 +7,37 @@ import tensorboardX
 import torch
 from torch.utils.data import DataLoader
 
+from dl4nlt.datasets import load_dataset
 
-import numpy as np
 from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import cohen_kappa_score
 
 
 from dl4nlt import ROOT
-from dl4nlt.datasets.dataset import ASAP_Data, denormalize_vec
+from dl4nlt.datasets.dataset import denormalize_vec
 from dl4nlt.models.embeddings.embedding_gru import EmbeddingGRU
 
 
-def create_collate(use_elmo=True):
-    def elmo_collate(batch):
-        sorted_batch = sorted(batch, key=lambda b: -1 * len(b.essay))
+VALIDATION_BATCHSIZE = 500
 
-        essays = list(map(lambda b: b.essay, sorted_batch))
 
-        essay_sets = torch.LongTensor([b.essay_set for b in batch]).reshape(-1)
 
-        lengths = list(map(lambda b: len(b.essay), sorted_batch))
+def elmo_collate(batch):
+    sorted_batch = sorted(batch, key=lambda b: -1 * len(b.essay))
 
-        targets = torch.LongTensor([b.y for b in sorted_batch]).reshape(-1)
-        print([b.y_original for b in sorted_batch])
+    essays = list(map(lambda b: b.elmo_tokenized, sorted_batch))
 
-        return essays, lengths, essay_sets, targets
+    essay_sets = torch.LongTensor([b.essay_set for b in sorted_batch]).reshape(-1)
 
-    return elmo_collate if use_elmo else lambda x: x
+    lengths = list(map(lambda b: len(b.elmo_tokenized), sorted_batch))
+
+    targets = torch.LongTensor([b.y for b in sorted_batch]).reshape(-1)
+    print([b.y_original for b in sorted_batch])
+
+    return essays, lengths, essay_sets, targets
 
 
 def train(config):
-    assert config.embedding_type in ("ELMO", "GLOVE")
 
     cuda_enabled = False
     if 'cuda' in config.device:
@@ -45,23 +45,24 @@ def train(config):
 
     print("Starting Training...")
 
-    training_data = ASAP_Data(list(range(1, 9)), elmo_formatting=True)
-    training_dataloader = DataLoader(training_data, batch_size=config.batch_size,
-                                     shuffle=True, pin_memory=True, collate_fn=create_collate())
+    training_data, validation_data, _ = load_dataset(config.dataset)
 
+    training_dataloader = DataLoader(training_data, batch_size=config.batch_size,
+                                     shuffle=True, pin_memory=True, collate_fn=elmo_collate)
+
+    # validation_dataloader = DataLoader(validation_data, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
+    #                         collate_fn=elmo_collate)
+    
     print("Training data loaded...")
 
-    if config.embedding_type is "ELMO":
-        model = EmbeddingGRU(
-            input_size=100,
-            hidden_size=config.rnn_cell_dim,
-            n_layers=config.num_rnn_layers,
-            dropout=0.1,
-            device=config.device,
-            elmo=True,
-        )
-    else:
-        model = None
+    model = EmbeddingGRU(
+        input_size=100,
+        hidden_size=config.rnn_cell_dim,
+        n_layers=config.num_rnn_layers,
+        dropout=0.1,
+        device=config.device,
+        elmo=True,
+    )
 
     writer = tensorboardX.SummaryWriter(os.path.join(os.path.dirname(__file__), f"runs/ELMORUN{time.time()}"))
     criterion = torch.nn.MSELoss()
@@ -74,31 +75,34 @@ def train(config):
     for e in range(config.num_epochs):
         print(f"Starting epoch {e}")
 
-        loss, denorm_loss,\
-        pearson, denorm_pearson,\
-        spearman, denorm_spearman,\
-            kappa = run_epoch(config, criterion, e, model, optimizer, training_data, training_dataloader, writer)
+        loss, denorm_loss, \
+        pearson, denorm_pearson, \
+        spearman, denorm_spearman, \
+        kappa = run_epoch(config, criterion, e, model, optimizer, training_data, training_dataloader, writer)
         print(f"Epoch loss {epoch_loss}")
         print(f"Epoch kappa {epoch_kappa}")
 
+        # val_loss, val_denorm_loss, \
+        # val_pearson, val_denorm_pearson, \
+        # val_spearman, val_denorm_spearman, \
+        # val_kappa = run_epoch(config, criterion, e, model, optimizer, validation_data, validation_dataloader, writer, is_training=False)
 
-def run_epoch(config, criterion, e, model, optimizer, data, dataloader, writer, is_training=True):
+
+def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_training=True):
     model.train() if is_training else model.eval()
 
-    epoch_loss = 0
-    epoch_denorm_loss = 0
-    epoch_pearson = 0
-    epoch_denorm_pearson = 0
-    epoch_spearman = 0
-    epoch_denorm_spearman = 0
-    epoch_kappa = 0
+    all_predictions = []
+    all_targets = []
+    
+    all_predictions_denorm = []
+    all_targets_denorm = []
 
     for batch_num, batch in enumerate(dataloader):
         optimizer.zero_grad()
 
         batch_input, lengths, essay_sets, targets = batch
         targets = targets.float().to(config.device)
-
+        
         outputs, hidden = model(batch_input, lengths)
 
         loss = torch.sqrt(criterion(outputs, targets))
@@ -118,33 +122,29 @@ def run_epoch(config, criterion, e, model, optimizer, data, dataloader, writer, 
         spearman, p_value = spearmanr(targets.detach(), outputs.detach())
 
         if is_training:
-            writer.add_scalar('Iteration training pearson', pearson, e * len(data) + batch_num)
-            writer.add_scalar('Iteration training spearman', spearman, e * len(data) + batch_num)
-            writer.add_scalar('Iteration training kappa', kappa, e * len(data) + batch_num)
+            writer.add_scalar('Iteration training pearson', pearson, e * len(dataloader) + batch_num)
+            writer.add_scalar('Iteration training spearman', spearman, e * len(dataloader) + batch_num)
+            writer.add_scalar('Iteration training kappa', kappa, e * len(dataloader) + batch_num)
 
         print(f"Batch loss {float(loss.item())}")
         print(f"Cohen kappa {kappa}")
-        batch_len = len(batch_input)
-        epoch_loss += float(loss.item()) * batch_len
-        epoch_denorm_loss += torch.sqrt(
-            criterion(t_denorm.float().to(config.device), y_denorm.float().to(config.device))
-        )
-        epoch_pearson += pearson * batch_len
-        epoch_denorm_pearson += batch_len * pearsonr(t_denorm.float().to(config.device),
-                                         y_denorm.float().to(config.device))[0]
-        epoch_spearman += spearman * batch_len
-        epoch_denorm_spearman += batch_len * spearmanr(t_denorm.float().to(config.device),
-                                           y_denorm.float().to(config.device))[0]
-        epoch_kappa += kappa * batch_len
 
-    data_length = len(data)
-    epoch_loss /= data_length
-    epoch_denorm_loss /= data_length
-    epoch_pearson /= data_length
-    epoch_denorm_pearson /= data_length
-    epoch_spearman /= data_length
-    epoch_denorm_spearman /= data_length
-    epoch_kappa /= data_length
+        all_predictions_denorm += y_denorm.to_list()
+        all_targets_denorm += t_denorm.to_list()
+
+        all_predictions += outputs.to_list()
+        all_targets += targets.to_list()
+    
+    epoch_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions), torch.FloatTensor(all_targets))).item()
+    epoch_denorm_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions_denorm), torch.FloatTensor(all_targets_denorm))).item()
+    
+    epoch_pearson, _ = pearsonr(all_targets, all_predictions)
+    epoch_denorm_pearson, _ = pearsonr(all_targets_denorm, all_predictions_denorm)
+    
+    epoch_spearman, _ = spearmanr(all_targets, all_predictions)
+    epoch_denorm_spearman, _ = spearmanr(all_targets_denorm, all_predictions_denorm)
+
+    epoch_kappa = cohen_kappa_score(all_targets_denorm, all_predictions_denorm, labels=list(range(0, 30)), weights="quadratic")
 
     return epoch_loss, epoch_denorm_loss, epoch_pearson, epoch_denorm_pearson, epoch_spearman, epoch_denorm_spearman, epoch_kappa
 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     # Command line arguments
     parser = argparse.ArgumentParser()
 
-    DATASET_DIR = os.path.join(ROOT, "data/baseline")
+    DATASET_DIR = os.path.join(ROOT, "data/elmo")
 
     default_device = "cpu"
     if torch.cuda.is_available():
@@ -169,8 +169,6 @@ if __name__ == "__main__":
                         help='Number of epochs to train for')
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for training')
-    parser.add_argument('--embedding_type', type=str, default='ELMO',
-                        help='Type of Embedding to use (ELMO, GLOVE)')
     parser.add_argument('--rnn_cell_dim', type=int, default=80,
                         help='Size of hidden dimension for the RNN cells')
     parser.add_argument('--num_rnn_layers', type=int, default=1,
