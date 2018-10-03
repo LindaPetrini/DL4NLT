@@ -10,13 +10,14 @@ from dl4nlt import ROOT
 
 
 from dl4nlt.datasets import load_dataset
-
+from dl4nlt.datasets import denormalize_vec
 
 from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import cohen_kappa_score
 
 from dl4nlt.models.w2v_baseline import Doc2VecSVR
 
+import torch
 import numpy as np
 import random
 
@@ -50,15 +51,27 @@ rmse_train = np.sqrt(np.mean((trainset.data['y'] - train_pred.reshape(-1)) ** 2)
 
 print('RMSE on trainingset: ', rmse_train)
 
-c_kappa_train = cohen_kappa_score(2*trainset.data['y'], (2*train_pred).round().astype(int).reshape(-1),
-                                  weights="quadratic")
-print('Kappa on trainingset: ', c_kappa_train)
-
 spearman_train = spearmanr(trainset.data['y'], train_pred)
 print('Spearman r on training set: ', spearman_train)
 
 pearson_train = pearsonr(trainset.data['y'], train_pred.squeeze())
 print('Pearson r on training set: ', pearson_train)
+
+denorm_train_pred = denormalize_vec(torch.LongTensor(trainset.data.essay_set), torch.FloatTensor(train_pred).squeeze(), torch.device('cpu')).numpy()
+
+denorm_rmse_train = np.sqrt(np.mean((trainset.data['y_original'] - denorm_train_pred.reshape(-1)) ** 2))
+
+print('RMSE on denormalized trainingset: ', denorm_rmse_train)
+
+denorm_c_kappa_train = cohen_kappa_score((2*trainset.data['y_original']).round().astype(int), (2*denorm_train_pred).round().astype(int), weights="quadratic")
+print('Kappa on trainingset: ', denorm_c_kappa_train)
+
+denorm_spearman_train = spearmanr(trainset.data['y_original'], denorm_train_pred)
+print('Spearman r on denormalized training set: ', denorm_spearman_train)
+
+denorm_pearson_train = pearsonr(trainset.data['y_original'], denorm_train_pred.squeeze())
+print('Pearson r on denormalized training set: ', denorm_pearson_train)
+
 
 
 test_pred = []
@@ -72,12 +85,25 @@ rmse_test = np.sqrt(np.mean((testset.data['y'] - test_pred.reshape(-1)) ** 2))
 
 print('RMSE on testset:', rmse_test)
 
-c_kappa_test = cohen_kappa_score(2*testset.data['y'], (2*test_pred).round().astype(int).reshape(-1),
-                                 weights="quadratic")
-print('Kappa on test set: ', c_kappa_test)
-
 spearman_test = spearmanr(testset.data['y'], test_pred)
 print('Spearman r on test set: ', spearman_test)
 
 pearson_test = pearsonr(testset.data['y'], test_pred.squeeze())
 print('Pearson r on test set: ', pearson_test)
+
+denorm_test_pred = denormalize_vec(torch.LongTensor(testset.data.essay_set), torch.FloatTensor(test_pred).squeeze(), torch.device('cpu')).numpy()
+
+denorm_rmse_test = np.sqrt(np.mean((testset.data['y_original'] - denorm_test_pred.reshape(-1)) ** 2))
+
+print('RMSE on denormalized testset:', denorm_rmse_test)
+
+denorm_c_kappa_test = cohen_kappa_score((2*testset.data['y_original']).round().astype(int), (2*denorm_test_pred).round().astype(int), weights="quadratic")
+
+print('Kappa on denormalized test set: ', denorm_c_kappa_test)
+
+denorm_spearman_test = spearmanr(testset.data['y_original'], denorm_test_pred)
+print('Spearman r on denormalized test set: ', denorm_spearman_test)
+
+denorm_pearson_test = pearsonr(testset.data['y_original'], denorm_test_pred.squeeze())
+print('Pearson r on denormalized test set: ', denorm_pearson_test)
+
