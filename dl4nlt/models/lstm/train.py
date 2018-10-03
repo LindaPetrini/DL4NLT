@@ -144,7 +144,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
 
     os.makedirs(outdir, exist_ok=True)
 
-    writer = SummaryWriter(os.path.join('runs', name))
+    writer = SummaryWriter(os.path.join('runs', dataset, name))
 
     training_set, validation_set, _ = load_dataset(os.path.join(DATASET_DIR, dataset))
     train_len, valid_len = len(training_set), len(validation_set)
