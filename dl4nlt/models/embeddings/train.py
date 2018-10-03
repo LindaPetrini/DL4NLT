@@ -16,9 +16,18 @@ from sklearn.metrics import cohen_kappa_score
 from dl4nlt import ROOT
 from dl4nlt.datasets.dataset import denormalize_vec
 from dl4nlt.models.embeddings.embedding_gru import EmbeddingGRU
+from dl4nlt.models.lstm.utils import update_metrics, update_csv, update_writer, update_metrics_pickle, update_saved_model
 
 
-VALIDATION_BATCHSIZE = 500
+OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_data")
+DATASET_DIR = os.path.join(ROOT, "data/elmo")
+
+EXP_NAME = 'ELMO'
+DROPOUT = 0.5
+BATCHSIZE = 128
+EPOCHS = 20
+LR = 0.0005
+VALIDATION_BATCHSIZE = 5
 
 
 def elmo_collate(batch):
@@ -48,8 +57,8 @@ def train(config):
     training_dataloader = DataLoader(training_data, batch_size=config.batch_size,
                                      shuffle=True, collate_fn=elmo_collate)
 
-    # validation_dataloader = DataLoader(validation_data, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
-    #                         collate_fn=elmo_collate)
+    validation_dataloader = DataLoader(validation_data, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
+                            collate_fn=elmo_collate)
     
     print("Training data loaded...")
 
@@ -61,11 +70,17 @@ def train(config):
         device=config.device,
     )
     
-    os.makedirs(os.path.join(os.path.dirname(__file__), "runs"), exist_ok=True)
-    
+
     writer = tensorboardX.SummaryWriter(os.path.join(os.path.dirname(__file__), f"runs/ELMORUN{time.time()}"))
-    
-    
+
+    outdir = os.path.join(OUTPUT_DIR, config.name)
+
+    os.makedirs(outdir, exist_ok=True)
+
+    outfile_metrics = os.path.join(outdir, "metrics.pickle")
+    outfile_metrics_valid = os.path.join(outdir, "metrics_valid.csv")
+    outfile_metrics_train = os.path.join(outdir, "metrics_train.csv")
+
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
@@ -73,20 +88,53 @@ def train(config):
         model.cuda(device=config.device)
         criterion.cuda(device=config.device)
 
+    metrics = {
+        "train": {
+            "rmse": [],
+            "pearson": [],
+            "spearman": [],
+            "kappa": [],
+        },
+        "valid": {
+            "rmse": [],
+            "pearson": [],
+            "spearman": [],
+            "kappa": [],
+        }
+    }
+
     for e in range(config.num_epochs):
         print(f"Starting epoch {e}")
 
-        loss, denorm_loss, \
-        pearson, denorm_pearson, \
-        spearman, denorm_spearman, \
-        kappa = run_epoch(config, criterion, e, model, optimizer, training_dataloader, writer)
-        print(f"Epoch loss {epoch_loss}")
-        print(f"Epoch kappa {epoch_kappa}")
+        loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(config, criterion, e, model, optimizer, training_dataloader, writer)
+        print('| Train Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
+            loss, pearson, spearman, kappa))
+        print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
+        metrics["train"] = update_metrics(metrics["train"], loss, pearson, spearman, kappa)
+        print("Got here")
+        update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=False)
+        print("Got here")
+        update_csv(outfile_metrics_train, e, loss, pearson, spearman, kappa)
+        print("Got here")
 
-        # val_loss, val_denorm_loss, \
-        # val_pearson, val_denorm_pearson, \
-        # val_spearman, val_denorm_spearman, \
-        # val_kappa = run_epoch(config, criterion, e, model, optimizer, validation_dataloader, writer, is_training=False)
+        loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(config, criterion, e, model, optimizer, validation_dataloader, writer, is_training=False)
+        print('| Valid Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
+            loss, pearson, spearman, kappa))
+        print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
+        metrics["valid"] = update_metrics(metrics["valid"], loss, pearson, spearman, kappa)
+        print("Got here")
+
+        update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=True)
+        print("Got here")
+        update_csv(outfile_metrics_valid, e, loss, pearson, spearman, kappa)
+        print("Got here")
+
+        update_saved_model(metrics, model, optimizer, e, outdir)
+        print("Got here")
+        update_metrics_pickle(metrics, outfile_metrics)
+        print("Got here")
+
+    print("Finished training")
 
 
 def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_training=True):
@@ -136,7 +184,7 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
 
         all_predictions += outputs.tolist()
         all_targets += targets.tolist()
-    
+
     epoch_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions), torch.FloatTensor(all_targets))).item()
     epoch_denorm_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions_denorm), torch.FloatTensor(all_targets_denorm))).item()
     
@@ -148,26 +196,27 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
 
     epoch_kappa = cohen_kappa_score(all_targets_denorm, all_predictions_denorm, labels=list(range(0, 30)), weights="quadratic")
 
-    return epoch_loss, epoch_denorm_loss, epoch_pearson, epoch_denorm_pearson, epoch_spearman, epoch_denorm_spearman, epoch_kappa
+    return epoch_loss, epoch_pearson, epoch_spearman, epoch_kappa, epoch_denorm_loss, epoch_denorm_pearson, epoch_denorm_spearman
 
 
 if __name__ == "__main__":
     # Command line arguments
     parser = argparse.ArgumentParser()
 
-    DATASET_DIR = os.path.join(ROOT, "data/elmo")
-
     default_device = "cpu"
     if torch.cuda.is_available():
         default_device = "cuda:0"
 
+    parser.add_argument('--name', type=str, default=EXP_NAME,
+                        help='Experiment name')
     parser.add_argument('--device', type=str, default=default_device,
                         help='Device to run computations on')
     parser.add_argument('--dataset', type=str, default=DATASET_DIR,
                         help='Path to the folder containg the dataset')
-    parser.add_argument('--batch_size', type=int, default=2,
+    parser.add_argument('--batch_size', type=int, default=5,
                         help='Batch size for training')
-    parser.add_argument('--num_epochs', type=int, default=20,
+    # parser.add_argument('--num_epochs', type=int, default=20,
+    parser.add_argument('--num_epochs', type=int, default=1,
                         help='Number of epochs to train for')
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for training')
