@@ -1,34 +1,48 @@
 
 from gensim.models.doc2vec import Doc2Vec
-import pandas as pd
-from dl4nlt.models import Doc2VecSVR
+
+from dl4nlt.models.w2v_baseline.build_doc2vec import OUTPUT_DIR as DOC2VEC_DIR
+from dl4nlt.models.w2v_baseline.svm_doc2vec import OUTPUT_DIR as SVM_DIR
+
 import pickle
 import os.path
 from dl4nlt import ROOT
-from dl4nlt.datasets import ASAP_Data
+
+
+from dl4nlt.datasets import load_dataset
+
+
 from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import cohen_kappa_score
+
+from dl4nlt.models.w2v_baseline import Doc2VecSVR
+
 import numpy as np
 import random
 
-doc2vec_model_path = os.path.join(ROOT, "models/w2v_baseline/model_doc2vec")
-svr_model_path = os.path.join(ROOT, "models/w2v_baseline/model_svr")
+DATASET = "global_mispelled"
+
+dataset_path = os.path.join(ROOT, "data", DATASET)
+doc2vec_model_path = os.path.join(DOC2VEC_DIR, DATASET)
+svr_model_path = os.path.join(SVM_DIR, DATASET)
 
 np.random.seed(42)
 random.seed(42)
 
 model = Doc2Vec.load(doc2vec_model_path)
 
+
 with open(svr_model_path, 'rb') as file:
     svr = pickle.load(file)
 
 
-trainset = ASAP_Data(list(range(1, 9)))
+trainset, _, testset = load_dataset(dataset_path)
 
 
 train_pred = []
 for i in range(len(trainset)):
-    x, y = trainset[i]
+    x = trainset[i].essay
+    y = trainset[i].y
     train_pred.append(svr.predict(x)[0])
 train_pred = np.array(train_pred)
 
@@ -46,10 +60,11 @@ print('Spearman r on training set: ', spearman_train)
 pearson_train = pearsonr(trainset.data['y'], train_pred.squeeze())
 print('Pearson r on training set: ', pearson_train)
 
-testset = ASAP_Data(list(range(1, 9)), train=False, test=True)
+
 test_pred = []
 for i in range(len(testset)):
-    x, y = testset[i]
+    x = testset[i].essay
+    y = testset[i].y
     test_pred.append(svr.predict(x)[0])
 test_pred = np.array(test_pred)
 

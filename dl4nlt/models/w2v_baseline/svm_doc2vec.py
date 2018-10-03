@@ -2,10 +2,8 @@
 from sklearn.svm import SVR
 
 from gensim.models.doc2vec import Doc2Vec
-from dl4nlt.datasets import ASAP_Data
 
 from dl4nlt import ROOT
-import os.path
 import os
 
 from dl4nlt.models.w2v_baseline.build_doc2vec import OUTPUT_DIR as DOC2VEC_DIR
@@ -65,7 +63,7 @@ class Doc2VecSVR:
 if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="local_mispelled",
+    parser.add_argument('--dataset', type=str, default="global_mispelled",
                         help='Dataset name')
     
     parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR,
@@ -73,11 +71,14 @@ if __name__ == '__main__':
 
     FLAGS, unparsed = parser.parse_known_args()
 
+    outfile = os.path.join(FLAGS.output_dir, FLAGS.dataset)
+
+    os.makedirs(FLAGS.output_dir, exist_ok=True)
+    print(outfile)
+
     model = Doc2VecSVR(dataset=os.path.join(ROOT, "data/", FLAGS.dataset),
                        doc2vec=os.path.join(DOC2VEC_DIR, FLAGS.dataset))
     
-    outfile = os.path.join(FLAGS.output_dir, FLAGS.dataset)
-    
-    os.makedirs(FLAGS.output_dir, exist_ok=True)
-    
     model.save(outfile=outfile)
+    
+    
