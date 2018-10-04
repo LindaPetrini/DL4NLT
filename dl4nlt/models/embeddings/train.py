@@ -27,7 +27,7 @@ DROPOUT = 0.5
 BATCHSIZE = 128
 EPOCHS = 20
 LR = 0.0005
-VALIDATION_BATCHSIZE = 5
+VALIDATION_BATCHSIZE = 16
 
 
 def elmo_collate(batch):
@@ -63,7 +63,7 @@ def train(config):
     print("Training data loaded...")
 
     model = EmbeddingGRU(
-        input_size=100,
+        input_size=256,
         hidden_size=config.rnn_cell_dim,
         n_layers=config.num_rnn_layers,
         dropout=0.1,
@@ -213,14 +213,13 @@ if __name__ == "__main__":
                         help='Device to run computations on')
     parser.add_argument('--dataset', type=str, default=DATASET_DIR,
                         help='Path to the folder containg the dataset')
-    parser.add_argument('--batch_size', type=int, default=5,
+    parser.add_argument('--batch_size', type=int, default=16,
                         help='Batch size for training')
-    # parser.add_argument('--num_epochs', type=int, default=20,
-    parser.add_argument('--num_epochs', type=int, default=1,
+    parser.add_argument('--num_epochs', type=int, default=50,
                         help='Number of epochs to train for')
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for training')
-    parser.add_argument('--rnn_cell_dim', type=int, default=80,
+    parser.add_argument('--rnn_cell_dim', type=int, default=100,
                         help='Size of hidden dimension for the RNN cells')
     parser.add_argument('--num_rnn_layers', type=int, default=1,
                         help='Number of RNN layers')
