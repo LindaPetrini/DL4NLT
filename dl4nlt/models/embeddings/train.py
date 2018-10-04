@@ -22,12 +22,12 @@ from dl4nlt.models.lstm.utils import update_metrics, update_csv, update_writer, 
 OUTPUT_DIR = os.path.join(ROOT, "models/lstm/saved_data")
 DATASET_DIR = os.path.join(ROOT, "data/elmo")
 
-EXP_NAME = 'ELMO'
+EXP_NAME = 'ELMO2'
 DROPOUT = 0.5
 BATCHSIZE = 128
 EPOCHS = 20
 LR = 0.0005
-VALIDATION_BATCHSIZE = 16
+VALIDATION_BATCHSIZE = 8
 
 
 def elmo_collate(batch):
@@ -52,13 +52,15 @@ def train(config):
 
     print("Starting Training...")
 
-    training_data, validation_data, _ = load_dataset(config.dataset)
+    training_data, validation_data, test_data = load_dataset(config.dataset)
 
     training_dataloader = DataLoader(training_data, batch_size=config.batch_size,
                                      shuffle=True, collate_fn=elmo_collate)
 
     validation_dataloader = DataLoader(validation_data, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
                             collate_fn=elmo_collate)
+    test_dataloader = DataLoader(test_data, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
+                                 collate_fn=elmo_collate)
     
     print("Training data loaded...")
 
@@ -80,6 +82,7 @@ def train(config):
     outfile_metrics = os.path.join(outdir, "metrics.pickle")
     outfile_metrics_valid = os.path.join(outdir, "metrics_valid.csv")
     outfile_metrics_train = os.path.join(outdir, "metrics_train.csv")
+    outfile_metrics_test = os.path.join(outdir, "metrics_test.csv")
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -100,10 +103,18 @@ def train(config):
             "pearson": [],
             "spearman": [],
             "kappa": [],
+        },
+        "test": {
+            "rmse": [],
+            "pearson": [],
+            "spearman": [],
+            "kappa": [],
         }
     }
 
     for e in range(config.num_epochs):
+        print("Shouldn't be running this")
+        exit()
         print(f"Starting epoch {e}")
 
         loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(config, criterion, e, model, optimizer, training_dataloader, writer)
@@ -134,7 +145,22 @@ def train(config):
         update_metrics_pickle(metrics, outfile_metrics)
         print("Got here")
 
+
     print("Finished training")
+    print("Evaluating on test set")
+    saved_model_dir = os.path.join(OUTPUT_DIR, "ELMO")
+    saved_model_path = os.path.join(saved_model_dir, "checkpoint_rmse.pth.tar")
+    load_saved_model(saved_model_path, model, config.device)
+    loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(config, criterion, 1, model, optimizer, test_dataloader, writer, is_training=False)
+    print('| Test Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
+            loss, pearson, spearman, kappa))
+    print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
+    update_csv(outfile_metrics_test, 1, loss, pearson, spearman, kappa)
+
+
+def load_saved_model(model_path, model, device):
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint['state_dict'])
 
 
 def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_training=True):
@@ -147,7 +173,8 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
     all_targets_denorm = []
 
     for batch_num, batch in enumerate(dataloader):
-        optimizer.zero_grad()
+        if is_training:
+            optimizer.zero_grad()
 
         batch_input, lengths, essay_sets, targets = batch
         
@@ -167,7 +194,7 @@ def run_epoch(config, criterion, e, model, optimizer, dataloader, writer, is_tra
         print(essay_sets)
         print(outputs.detach().tolist(), targets)
         print(y_denorm, t_denorm)
-        kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(0, 30)), weights="quadratic")
+        kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(0, 60)), weights="quadratic")
         pearson, p_value = pearsonr(targets.detach(), outputs.detach())
         spearman, p_value = spearmanr(targets.detach(), outputs.detach())
 
