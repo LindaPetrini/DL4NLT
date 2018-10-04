@@ -16,13 +16,13 @@ OUTPUT_FILE = os.path.join(ROOT, "models/lstm/experiments/the_final_experiments.
 
 params = {
     'rnn_type': ['LSTM', 'BLSTM', 'GRU'],
-    'embeddings': ['sswe', 200],
+    'embeddings': ['sswe'],
     'dataset': ['local_mispelled'],
     'lr': [1e-4],
     'n_hidden_units': [128],
     'dropout': [0.4],
     'n_hidden_layers': [1],
-    'epochs': [100],
+    'epochs': [1],
 }
 
 

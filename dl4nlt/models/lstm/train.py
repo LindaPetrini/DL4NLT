@@ -233,7 +233,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     
     params = kwargs.copy()
     params.update({
-        'vocab_len ': vocab_len,
+        'vocab_len': vocab_len,
         'target_vocab_to_idx': training_set.dict.word2idx,
     })
     
