@@ -18,11 +18,14 @@ def get_dataset(name, global_misspelled_token=False, elmo_formatting=False):
     
     #Generate and pickle datasets for standard settings
     train = ASAP_Data(list(range(1, 9)),
-                      elmo_formatting=elmo_formatting)
+                      elmo_formatting=elmo_formatting,
+                      global_misspelled_token=global_misspelled_token)
     valid = ASAP_Data(list(range(1, 9)), train=False, valid=True, folder_dataset=DATA_FOLDER, dictionary=train.dict,
-                      elmo_formatting=elmo_formatting)
+                      elmo_formatting=elmo_formatting,
+                      global_misspelled_token=global_misspelled_token)
     test = ASAP_Data(list(range(1, 9)), train=False, test=True, folder_dataset=DATA_FOLDER, dictionary=train.dict,
-                     elmo_formatting=elmo_formatting)
+                     elmo_formatting=elmo_formatting,
+                     global_misspelled_token=global_misspelled_token)
 
     pickle.dump(train, open(os.path.join(datafolder, 'train.p'), "wb"))
     pickle.dump(valid, open(os.path.join(datafolder, 'valid.p'), "wb"))
@@ -32,6 +35,6 @@ def get_dataset(name, global_misspelled_token=False, elmo_formatting=False):
 
 
 if __name__ == '__main__':
-    get_dataset('local_mispelled', global_misspelled_token=False)
+    # get_dataset('local_mispelled', global_misspelled_token=False)
     get_dataset('global_mispelled', global_misspelled_token=True)
-    get_dataset('elmo', elmo_formatting=True)
+    # get_dataset('elmo', elmo_formatting=True)
