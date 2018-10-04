@@ -4,7 +4,7 @@ import torch
 
 from dl4nlt import ROOT
 
-EMB_PATH = os.path.join(ROOT, "models/sswe/saved_models", "exp.model")
+EMB_PATH = os.path.join(ROOT, "models/sswe/saved_models", "latest.pth.tar")
 DATASET_DIR = os.path.join(ROOT, "data/baseline")
 
 from dl4nlt.datasets import load_dataset
@@ -20,18 +20,27 @@ model = SSWEModel(vocab_len=len(training.dict), context_size=9, emb_size=200, n_
 embeddings = model.embeddings
 
 
-words = ['computer', 'people', 'laptop']
+# words = ['computer', 'people', 'laptop']
+# words = ['computer', '_computer', 'laptop', '_laptop']
+# words = ['girl', '_girl', 'woman', '_woman', 'man', '_man']
+# words = ['student', 'teacher', '_student', '_teacher']
 
-for w in words:
-    print(w)
-    
-    w1 = training.dict.word2idx[w]
-    w2 = training.dict.word2idx['_' + w]
-    
-    e1 = embeddings(torch.tensor(w1))
-    e2 = embeddings(torch.tensor(w2))
-    
-    print('\tCosineSimilarity with the mispelled version =', (e1@e2).item())
+words = ['', '', '', '']  # TODO Find some good one where boy = girl, _boy ~ _girl, boy ~ _boy, but _boy != girl (both semantic and correctness are different)
+# words = ['', '', '', '']
+# words = ['', '', '', '']
+# words = ['', '', '', '']
+# words = ['', '', '', '']
+
+# for w in words:
+#     print(w)
+#
+#     w1 = training.dict.word2idx[w]
+#     w2 = training.dict.word2idx['_' + w]
+#
+#     e1 = embeddings(torch.tensor(w1))
+#     e2 = embeddings(torch.tensor(w2))
+#
+#     print('\tCosineSimilarity with the mispelled version =', (e1@e2).item())
 
 for i in range(len(words)-1):
     for j in range(i+1, len(words)):
