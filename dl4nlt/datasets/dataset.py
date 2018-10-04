@@ -50,7 +50,7 @@ def denormalize_vec(essay_set, y, device):
     essay_set = essay_set - 1
     a = norm_essay_set_tens_device[essay_set, 1]
     b = norm_essay_set_tens_device[essay_set, 0]
-    return (a + y * (b - a)).round().type(torch.LongTensor).to(device)
+    return (2*(a + y * (b - a))).round().type(torch.LongTensor).to(device)
 
 
 class ASAP_Data(Dataset):
@@ -91,6 +91,9 @@ class ASAP_Data(Dataset):
         for r in non_empty_rater3:
             data.at[r, 'y_original'] = data.at[r, 'rater3_domain1'] / 2.0
 
+        data.y_original *= 2
+        data.y_original = data.y_original.astype(int)
+        
         print("Number of essays in data: ", len(data['y_original']))
 
         # normalize

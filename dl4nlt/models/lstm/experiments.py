@@ -12,20 +12,16 @@ from dl4nlt.models.lstm.train import train
 
 os.makedirs(os.path.join(ROOT, "models/lstm/experiments/"), exist_ok=True)
 
-OUTPUT_FILE = os.path.join(ROOT, "models/lstm/experiments/exp.csv")
-
-
-DATASET_DIR = os.path.join(ROOT, "data/baseline")
-
-EMB_FILE = os.path.join(ROOT, "models/sswe/saved_models", "latest.pth.tar")
+OUTPUT_FILE = os.path.join(ROOT, "models/lstm/experiments/final_experiments.csv")
 
 params = {
-    'rnn_type': ['LSTM', 'BLSTM'],
-    # 'embeddings': [200, EMB_FILE],
-    'lr': [1e-2, 1e-3, 1e-4],
-    'n_hidden_units': [10, 64, 128],
-    'dropout': [0.3, 0.5],
-    'n_hidden_layers': [1], #[1, 2],
+    'rnn_type': ['GRU', 'LSTM', 'BLSTM'],
+    'embeddings': ['sswe'],
+    'dataset': ['local_mispelled', 'global_mispelled'],
+    'lr': [1e-4],
+    'n_hidden_units': [128],
+    'dropout': [0.4],
+    'n_hidden_layers': [1]
 }
 
 
@@ -48,8 +44,8 @@ experiments_keys = list(params.keys())
 
 defaults = {
     # 'name': 'exp.model',
-    'dataset': DATASET_DIR,
-    'epochs': 1,
+    'dataset': 'local_mispelled',
+    'epochs': 10,
     'lr': 3e-3,
     'batchsize': 128,
     'n_hidden_units': 100,
@@ -99,14 +95,8 @@ for i, c in enumerate(combinations):
 
     conf = {k: v for k, v in zip(params_names, c)}
     
-    conf_names = conf.copy()
-    if isinstance(conf_names['embeddings'], str):
-        conf_names['embeddings'] = 'pretrained'
-
-    if isinstance(conf_names['dataset'], str):
-        conf_names['dataset'] = os.path.basename(conf['dataset'])
         
-    name = "(" + ";".join([str(conf_names[k]) for k in experiments_keys]) + ")"
+    name = "(" + ";".join([str(conf[k]) for k in experiments_keys]) + ")"
     
     exp_name = '{}_{}'.format(name, datetime.now().strftime("%Y-%m-%d %H:%M"))
 

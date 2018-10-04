@@ -10,7 +10,7 @@ import os
 DATA_FOLDER = os.path.join(ROOT, "data/")
 
 
-def get_dataset(name, elmo_formatting=False):
+def get_dataset(name, global_misspelled_token=False, elmo_formatting=False):
     
     datafolder = os.path.join(DATA_FOLDER, name)
 
@@ -32,5 +32,6 @@ def get_dataset(name, elmo_formatting=False):
 
 
 if __name__ == '__main__':
-    # get_dataset('baseline')
+    get_dataset('local_mispelled', global_misspelled_token=False)
+    get_dataset('global_mispelled', global_misspelled_token=True)
     get_dataset('elmo', elmo_formatting=True)
