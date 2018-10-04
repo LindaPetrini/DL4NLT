@@ -3,6 +3,7 @@
 #### University of Amsterdam, September-October 2018
 #### Davide Belli, Gabriele Cesa, Alexander Geenen, Linda Petrini and Gautier Dagan
 
+#### [https://github.com/LindaPetrini/DL4NLT](https://github.com/LindaPetrini/DL4NLT)
 
 This is the repo for our Deep Learning for Natural Language Processing class Project, to run please unzip the data.zip folder and build the datasets using the following instructions:
 
