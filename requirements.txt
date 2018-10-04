@@ -17,3 +17,4 @@ pandas
 allennlp
 wget
 bcolz
+tensorboardX

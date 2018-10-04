@@ -49,7 +49,7 @@ def download_glove_weights():
     print("Finished extracting Glove Weights")
 
 
-def preprocess_glove_weights():
+def preprocess_glove_weights(emb_dim=50):
     """
     Preprocess the Glove weights for use in Pytorch embedding
 
@@ -60,9 +60,9 @@ def preprocess_glove_weights():
     tokens = []
     index = 0
     t2ind = {}
-    embeddings = bcolz.carray(np.zeros(1), rootdir=os.path.join(data_dir, "glove_data.dat"), mode="w")
+    embeddings = bcolz.carray(np.zeros(1), rootdir=os.path.join(data_dir, f"glove_data{emb_dim}.dat"), mode="w")
 
-    with open(os.path.join(data_dir, "glove.6B.50d.txt"), "rb") as weights_file:
+    with open(os.path.join(data_dir, f"glove.6B.{emb_dim}d.txt"), "rb") as weights_file:
         for line in weights_file:
             line_vals = line.decode().split()
             token = line_vals[0]
@@ -74,16 +74,19 @@ def preprocess_glove_weights():
             embedding = np.array(line_vals[1:]).astype(np.float)
             embeddings.append(embedding)
 
-    embeddings = bcolz.carray(embeddings[1:].reshape((-1, 50)),
-                              rootdir=os.path.join(data_dir, "glove_data.dat"),
+    embeddings = bcolz.carray(embeddings[1:].reshape((-1, emb_dim)),
+                              rootdir=os.path.join(data_dir, f"glove_data{emb_dim}.dat"),
                               mode='w')
     embeddings.flush()
-    pickle.dump(tokens, open(os.path.join(data_dir, "glove_tokens.pkl"), "wb"))
-    pickle.dump(t2ind, open(os.path.join(data_dir, "glove_t2ind.pkl"), "wb"))
+    pickle.dump(tokens, open(os.path.join(data_dir, f"glove_tokens{emb_dim}.pkl"), "wb"))
+    pickle.dump(t2ind, open(os.path.join(data_dir, f"glove_t2ind{emb_dim}.pkl"), "wb"))
     print("Finished Preparing Glove Weights")
 
 
 if __name__ == "__main__":
     download_elmo_weights()
     download_glove_weights()
-    preprocess_glove_weights()
+    preprocess_glove_weights(50)
+    preprocess_glove_weights(100)
+    preprocess_glove_weights(200)
+    preprocess_glove_weights(300)
