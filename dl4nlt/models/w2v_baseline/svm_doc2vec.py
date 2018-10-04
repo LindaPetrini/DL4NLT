@@ -36,7 +36,7 @@ class Doc2VecSVR:
         
         set, _, _ = load_dataset(dataset)
     
-        y = set.data['y']
+        y = set.data['y_original']
         X = set.data['essay'].apply(lambda doc: pd.Series(doc2vec.infer_vector(doc)))
         
         print('Training Set built')

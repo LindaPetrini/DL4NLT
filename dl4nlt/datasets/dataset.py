@@ -17,22 +17,21 @@ from dl4nlt import ROOT
 DATA_FOLDER = os.path.join(ROOT, "data/")
 
 norm_essay_set = {
-    1: {'max': 6, 'min': 1},
+    1: {'max': 12, 'min': 2},
     2: {'max': 6, 'min': 1},
     3: {'max': 3, 'min': 0},
     4: {'max': 3, 'min': 0},
     5: {'max': 4, 'min': 0},
     6: {'max': 4, 'min': 0},
-    7: {'max': 12, 'min': 0},
-    8: {'max': 30, 'min': 5}
+    7: {'max': 24, 'min': 0},
+    8: {'max': 60, 'min': 10}
 }
 
 norm_essay_set_tens = torch.FloatTensor([[x['max'], x['min']] for k, x in sorted(norm_essay_set.items())])
 
 
 def normalize_row(r):
-    return (r['y_original'] - norm_essay_set[r['essay_set']]['min']
-            ) / (norm_essay_set[r['essay_set']]['max'] - norm_essay_set[r['essay_set']]['min'])
+    return (r['y_original'] - norm_essay_set[r['essay_set']]['min']) / (norm_essay_set[r['essay_set']]['max'] - norm_essay_set[r['essay_set']]['min'])
 
 
 def denormalize(essay_set, y):
@@ -50,9 +49,9 @@ def denormalize_vec(essay_set, y, device):
     essay_set = essay_set - 1
     a = norm_essay_set_tens_device[essay_set, 1]
     b = norm_essay_set_tens_device[essay_set, 0]
-    res = (2*(a + y * (b - a))).round()
-    res = torch.max(res, 2*a)
-    res = torch.min(res, 2*b)
+    res = (a + y * (b - a)).round()
+    res = torch.max(res, a)
+    res = torch.min(res, b)
     return res.type(torch.LongTensor).to(device)
 
 
@@ -87,15 +86,8 @@ class ASAP_Data(Dataset):
 
         # select on rows that are in desired dataset and essay set
         data = data.loc[data["essay_set"].isin(essay_set) & data["essay_id"].isin(ids_used)]
-        data['y_original'] = data[['rater1_domain1', 'rater2_domain1']].mean(axis=1)
-
-        # if 3rd rater - replace y rating with his instead
-        non_empty_rater3 = list(data.loc[pd.notnull(data['rater3_domain1'])].index.values.tolist())
-        for r in non_empty_rater3:
-            data.at[r, 'y_original'] = data.at[r, 'rater3_domain1'] / 2.0
-
-        data.y_original *= 2
-        data.y_original = data.y_original.astype(int)
+        
+        data['y_original'] = data.domain1_score
         
         print("Number of essays in data: ", len(data['y_original']))
 
