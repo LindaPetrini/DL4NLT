@@ -7,6 +7,10 @@ from dl4nlt.models.embeddings.elmo_embedding import create_elmo_embedding
 
 
 class EmbeddingGRU(nn.Module):
+    """
+    ELMo powered GRU network. Uses a linear projection from the base ELMo embeddings to a different desired
+    dimensionality. This projection is then used as input to the GRU network in order to make predictions.
+    """
     def __init__(self, input_size, hidden_size, n_layers=2, n_outputs=1, dropout=0.1, device='cpu'):
         super(EmbeddingGRU, self).__init__()
 
@@ -29,8 +33,6 @@ class EmbeddingGRU(nn.Module):
         embedded = embedded[0].to(self.device).transpose(0, 1)
         emb_projection = self.embedding_projection(embedded)
 
-        # TODO - don't we apply non-linearity to embeddings before feeding them to lstm?
-        
         packed = torch.nn.utils.rnn.pack_padded_sequence(emb_projection, input_lengths)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs)  # unpack (back to padded)
@@ -45,6 +47,11 @@ class EmbeddingGRU(nn.Module):
 
     @staticmethod
     def elmo_to_torch(elmo_embedding):
+        """
+        Extract the elmo embedding tensor and the corresponding sequence lengths from a AllenNLP ELMo Module's output
+        :param elmo_embedding: ELMo Module Output
+        :return: Extracted tensor and sequence lengths
+        """
         tensor = elmo_embedding["elmo_representations"]
         seq_lengths = torch.sum(elmo_embedding["mask"], 1)
 
