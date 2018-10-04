@@ -136,6 +136,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     outfile_metrics = os.path.join(outdir, "metrics.pickle")
     outfile_metrics_valid = os.path.join(outdir, "metrics_valid.csv")
     outfile_metrics_train = os.path.join(outdir, "metrics_train.csv")
+    outfile_model = os.path.join(outdir, "model")
 
     os.makedirs(outdir, exist_ok=True)
     
@@ -228,6 +229,8 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     print('| Test Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
         loss, pearson, spearman, kappa))
     print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
+
+    torch.save({'state_dict': best_model}, outfile_model)
     
     return min(metrics["valid"]["rmse"]), max(metrics["valid"]["kappa"]), (loss, pearson, spearman, kappa, aloss, apearson, aspearman)
 
