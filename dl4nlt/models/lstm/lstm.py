@@ -85,7 +85,7 @@ class CustomLSTM(nn.Module):
         else:
             return (weight.new(self.n_hidden_layers, bsz, self.n_hidden_units).zero_(),)
 
-    def init_emb_from_file(self, path='dl4nlt/models/sswe/saved_models/latest.pth.tar'):
+    def init_emb_from_file(self, path='dl4nlt/models/sswe/saved_models/local_mispelled/latest.pth.tar'):
         # emb_mat = np.genfromtxt(path)
         # - infer the embedding directly from the file, without building the module beforehand
         # self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
