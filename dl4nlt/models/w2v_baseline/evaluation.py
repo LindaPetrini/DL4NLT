@@ -21,7 +21,7 @@ import torch
 import numpy as np
 import random
 
-DATASET = "global_mispelled"
+DATASET = "local_mispelled"
 
 dataset_path = os.path.join(ROOT, "data", DATASET)
 doc2vec_model_path = os.path.join(DOC2VEC_DIR, DATASET)

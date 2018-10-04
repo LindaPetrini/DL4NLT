@@ -68,18 +68,14 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     def run_epoch(data, epoch, is_eval=False):
         if is_eval:
             model.eval()
-            data_len = valid_len
         else:
             model.train()
-            data_len = train_len
+        
+        all_predictions = []
+        all_targets = []
 
-        loss = 0
-        pearson = 0
-        spearman = 0
-        kappa = 0
-        aloss = 0
-        apearson = 0
-        aspearman = 0
+        all_predictions_denorm = []
+        all_targets_denorm = []
 
         for i_batch, batch in enumerate(data):
             x, s, t, l = batch
@@ -107,29 +103,25 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
                 writer.add_scalar('Iteration training spearman', this_spearman, epoch * len(data) + i_batch)
                 writer.add_scalar('Iteration training kappa', this_kappa, epoch * len(data) + i_batch)
 
-            # Weight scores depending on batch size (last batch is smaller)
-            loss += this_loss.item() * x.shape[1]
-            pearson += this_pearson * x.shape[1]
-            spearman += this_spearman * x.shape[1]
-            kappa += this_kappa * x.shape[1]
+            all_predictions_denorm += y_denorm.tolist()
+            all_targets_denorm += t_denorm.tolist()
 
-            aloss += x.shape[1] * torch.sqrt(
-                criterion(y_denorm.type(torch.FloatTensor).to(device), t_denorm.type(torch.FloatTensor).to(device)))
-            apearson = x.shape[1] * pearsonr(t_denorm.type(torch.FloatTensor).to(device),
-                                             y_denorm.type(torch.FloatTensor).to(device))[0]
-            aspearman = x.shape[1] * spearmanr(t_denorm.type(torch.FloatTensor).to(device),
-                                               y_denorm.type(torch.FloatTensor).to(device))[0]
+            all_predictions += y.tolist()
+            all_targets += t.tolist()
 
-        # Average over the size of the train/valid data
-        loss /= data_len
-        pearson /= data_len
-        spearman /= data_len
-        kappa /= data_len
-        aloss /= data_len
-        apearson /= data_len
-        aspearman /= data_len
+        epoch_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions), torch.FloatTensor(all_targets))).item()
+        epoch_denorm_loss = torch.sqrt(criterion(torch.FloatTensor(all_predictions_denorm), torch.FloatTensor(all_targets_denorm))).item()
 
-        return loss, pearson, spearman, kappa, aloss, apearson, aspearman
+        epoch_pearson, _ = pearsonr(all_targets, all_predictions)
+        epoch_denorm_pearson, _ = pearsonr(all_targets_denorm, all_predictions_denorm)
+
+        epoch_spearman, _ = spearmanr(all_targets, all_predictions)
+        epoch_denorm_spearman, _ = spearmanr(all_targets_denorm, all_predictions_denorm)
+
+        epoch_kappa = cohen_kappa_score(all_targets_denorm, all_predictions_denorm, labels=list(range(0, 61)),
+                                        weights="quadratic")
+
+        return epoch_loss, epoch_pearson, epoch_spearman, epoch_kappa, epoch_denorm_loss, epoch_denorm_pearson, epoch_denorm_spearman
 
     ##############################################
     ## Data, Model and Optimizer initialization ##
@@ -149,12 +141,14 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
     
     writer = SummaryWriter(os.path.join('runs', dataset, name))
 
-    training_set, validation_set, _ = load_dataset(os.path.join(DATASET_DIR, dataset))
-    train_len, valid_len = len(training_set), len(validation_set)
+    training_set, validation_set, testing_set = load_dataset(os.path.join(DATASET_DIR, dataset))
+    
     vocab_len = len(training_set.dict)
     training = DataLoader(training_set, batch_size=batchsize, shuffle=True, pin_memory=True,
                           collate_fn=create_collate())
     validation = DataLoader(validation_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
+                            collate_fn=create_collate())
+    testing = DataLoader(testing_set, batch_size=VALIDATION_BATCHSIZE, shuffle=False, pin_memory=True,
                             collate_fn=create_collate())
     
     if kwargs['embeddings'] == 'sswe':
@@ -165,7 +159,8 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
 
     criterion = MSELoss()
     optimizer = Adam(model.parameters(), lr)
-    # optimizer = SGD(model.parameters(), lr)
+
+    best_model = model.state_dict()
 
     ####################################
     ############# TRAINING #############
@@ -216,11 +211,25 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
         # update_saved_model(metrics, model, optimizer, e, outdir)
         update_metrics_pickle(metrics, outfile_metrics)
 
+        if metrics["valid"]["rmse"][-1] == min(metrics["valid"]["rmse"]):
+            best_model = model.state_dict()
+
         print()
 
     print("Finished training in {:.1f} minutes ".format((time.time() - start_time) / 60))
 
-    return min(metrics["valid"]["rmse"]), max(metrics["valid"]["kappa"])
+    print('###################################################################################')
+    print('Starting Testing')
+    print('###################################################################################')
+
+    model.load_state_dict(best_model)
+
+    loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(testing, e, is_eval=True)
+    print('| Test Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |  Kappa: {:.5f} |'.format(
+        loss, pearson, spearman, kappa))
+    print('| Denor Loss: {:.5f} |  Pearson: {:.5f} |  Spearman: {:.5f} |\n'.format(aloss, apearson, aspearman))
+    
+    return min(metrics["valid"]["rmse"]), max(metrics["valid"]["kappa"]), (loss, pearson, spearman, kappa, aloss, apearson, aspearman)
 
 
 if __name__ == '__main__':
