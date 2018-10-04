@@ -113,8 +113,6 @@ def train(config):
     }
 
     for e in range(config.num_epochs):
-        print("Shouldn't be running this")
-        exit()
         print(f"Starting epoch {e}")
 
         loss, pearson, spearman, kappa, aloss, apearson, aspearman = run_epoch(config, criterion, e, model, optimizer, training_dataloader, writer)
