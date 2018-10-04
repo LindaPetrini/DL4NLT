@@ -68,7 +68,7 @@ if __name__ == '__main__':
 
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="global_mispelled",
+    parser.add_argument('--dataset', type=str, default="local_mispelled",
                         help='Dataset name')
     parser.add_argument('--epochs', type=int, default=EPOCHS,
                         help='Number of epochs for training')

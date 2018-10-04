@@ -63,7 +63,7 @@ class Doc2VecSVR:
 if __name__ == '__main__':
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="global_mispelled",
+    parser.add_argument('--dataset', type=str, default="local_mispelled",
                         help='Dataset name')
     
     parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR,
@@ -81,4 +81,4 @@ if __name__ == '__main__':
     
     model.save(outfile=outfile)
     
-    
+
