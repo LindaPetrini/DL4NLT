@@ -45,7 +45,7 @@ experiments_keys = list(params.keys())
 defaults = {
     # 'name': 'exp.model',
     'dataset': 'local_mispelled',
-    'epochs': 10,
+    'epochs': 100,
     'lr': 3e-3,
     'batchsize': 128,
     'n_hidden_units': 100,

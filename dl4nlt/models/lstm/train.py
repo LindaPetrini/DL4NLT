@@ -98,7 +98,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
 
             y_denorm = denormalize_vec(s, y.detach(), device)
             t_denorm = denormalize_vec(s, t.detach(), device)
-            this_kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(1, 30)), weights="quadratic")
+            this_kappa = cohen_kappa_score(t_denorm, y_denorm, labels=list(range(0, 61)), weights="quadratic")
             this_pearson, p_value = pearsonr(t.detach(), y.detach())
             this_spearman, p_value = spearmanr(t.detach(), y.detach())
 
@@ -213,7 +213,7 @@ def train(name, dataset, epochs, lr, batchsize, **kwargs):
         update_writer(writer, e, loss, pearson, spearman, kappa, is_eval=True)
         update_csv(outfile_metrics_valid, e, loss, pearson, spearman, kappa)
 
-        update_saved_model(metrics, model, optimizer, e, outdir)
+        # update_saved_model(metrics, model, optimizer, e, outdir)
         update_metrics_pickle(metrics, outfile_metrics)
 
         print()
