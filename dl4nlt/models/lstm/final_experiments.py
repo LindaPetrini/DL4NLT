@@ -12,32 +12,18 @@ from dl4nlt.models.lstm.train import train
 
 os.makedirs(os.path.join(ROOT, "models/lstm/experiments/"), exist_ok=True)
 
-OUTPUT_FILE = os.path.join(ROOT, "models/lstm/experiments/gridsearch_experiments.csv")
+OUTPUT_FILE = os.path.join(ROOT, "models/lstm/experiments/the_final_experiments.csv")
 
 params = {
-    'rnn_type': ['GRU', 'LSTM', 'BLSTM'],
-    'embeddings': ['sswe'],
-    'dataset': ['local_mispelled', 'global_mispelled'],
+    'rnn_type': ['LSTM', 'BLSTM', 'GRU'],
+    'embeddings': ['sswe', 200],
+    'dataset': ['local_mispelled'],
     'lr': [1e-4],
     'n_hidden_units': [128],
     'dropout': [0.4],
-    'n_hidden_layers': [1]
+    'n_hidden_layers': [1],
+    'epochs': [100],
 }
-
-
-
-# params = {
-#     # 'name': 'exp.model',
-#     'dataset': [DATASET_DIR],
-#     'epochs': [20],
-#     'lr': [0.0005],
-#     'batchsize': [128],
-#     'n_hidden_units': [100],
-#     'n_hidden_layers': [1],
-#     'dropout': [0.5],
-#     'rnn_type': ['LSTM'],
-#     'embeddings': [200],
-# }
 
 
 experiments_keys = list(params.keys())
@@ -68,11 +54,14 @@ params_vals = [p[1] for p in params]
 def save_results(logs):
     print('Saving...')
     
-    columns = params_names + ['Validation Loss', 'Validation Cohen']
+    metrics = ['Validation Loss', 'Validation Cohen']\
+              + ['Test Loss', 'Test Pearson', 'Test Spearman', 'Test Kappa', 'Test Denorm Loss', 'Test Denorm Pearson', 'Test Denorm Spearman']
+    
+    columns = params_names + metrics
     
     logs = pd.DataFrame(data=logs, columns=columns)
     
-    logs = logs[sorted(columns[:-2]) + columns[-2:]]
+    logs = logs[sorted(params_names) + metrics]
     
     with open(OUTPUT_FILE, 'w') as f:
         logs.to_csv(f, sep=',', encoding='utf-8')
@@ -98,13 +87,13 @@ for i, c in enumerate(combinations):
         
     name = "(" + ";".join([str(conf[k]) for k in experiments_keys]) + ")"
     
-    exp_name = '{}_{}'.format(name, datetime.now().strftime("%Y-%m-%d %H:%M"))
+    exp_name = name
 
     conf['name'] = exp_name
     print(conf, '\n')
-    min_loss, max_cohen, _ = train(**conf)
+    min_loss, max_cohen, test_metrics = train(**conf)
     
-    row = list(c) + [min_loss, max_cohen]
+    row = list(c) + [min_loss, max_cohen] + list(test_metrics)
     logs.append(row)
     
     print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
